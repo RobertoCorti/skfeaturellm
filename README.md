@@ -40,3 +40,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## 👤 Author
 
 - **Roberto Corti** - [GitHub](https://github.com/RobertoCorti)
+- **Stefano Polo** - [GitHub](https://github.com/stefano-polo)

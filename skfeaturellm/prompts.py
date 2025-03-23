@@ -2,6 +2,8 @@
 Module containing prompts for LLM interactions.
 """
 
+# pylint: disable=line-too-long
+
 FEATURE_ENGINEERING_PROMPT = """You are an expert data scientist specializing in feature engineering for tabular data.
 Given the following dataset information, suggest meaningful features that could improve model performance.
 
@@ -27,4 +29,4 @@ For each feature, provide:
 
 Respond in a structured format that can be parsed into the following schema:
 {feature_schema}
-""" 
+"""

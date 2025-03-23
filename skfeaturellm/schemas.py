@@ -1,8 +1,11 @@
 """
 Pydantic models for data validation and serialization.
 """
+
 from pydantic import BaseModel
 
 
 class FeatureIdea(BaseModel):
-    pass
+    """
+    Data model for a feature engineering idea.
+    """

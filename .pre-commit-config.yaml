@@ -1,0 +1,51 @@
+repos:
+  - repo: local
+    hooks:
+      - id: black
+        name: black formatter
+        entry: black
+        language: system
+        types: [python]
+        require_serial: true
+        args: ["--config", "pyproject.toml", .]
+      - id: isort
+        name: isort import formatter
+        entry: isort
+        language: system
+        types: [python]
+        require_serial: true
+      - id: trailin-whitespace
+        name: trailing whitespace remover
+        entry: trailing-whitespace-fixer
+        language: system
+        types: [text]
+        stages: [pre-commit, pre-push, manual]
+      - id: end-of-file-fixer
+        name: end of file fixer
+        entry: end-of-file-fixer
+        language: system
+        types: [text]
+        stages: [pre-commit, pre-push, manual]
+      - id: pylint
+        name: pylint linter
+        entry: pylint
+        language: system
+        types: [python]
+        require_serial: true
+        args: [
+          "-rn",
+          "-sn",
+          "skfeaturellm"]
+      #- id: mypy
+      #  name: mypy type checker
+      #  entry: mypy
+      #  language: system
+      #  types: [python]
+      #  require_serial: true
+      #  args: [
+      #    "--config-file", "pyproject.toml",
+      #    "--exclude", "skfeaturellm/feature_engineer.py",
+      #    "--exclude", "skfeaturellm/__init__.py",
+      #   "--explicit-package-bases",
+      #    "skfeaturellm"
+      #  ]

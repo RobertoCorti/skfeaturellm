@@ -18,28 +18,31 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
 
     Parameters
     ----------
-    llm_config : Dict[str, Any]
-        Configuration for the LLM interface (API keys, model selection, etc.)
+    model_name : str, default="gpt-4"
+        Name of the model to use
     target_col : Optional[str]
         Name of the target column for supervised feature engineering
     max_features : Optional[int]
         Maximum number of features to generate
     feature_prefix : str
         Prefix to add to generated feature names
+    **kwargs
+        Additional keyword arguments for the LLMInterface
     """
 
     def __init__(
         self,
-        llm_config: Dict[str, Any],
+        model_name: str = "gpt-4",
         target_col: Optional[str] = None,
         max_features: Optional[int] = None,
-        feature_prefix: str = "llm_feat_eng_",
+        feature_prefix: str = "llm_feat_",
+        **kwargs,
     ):
-        self.llm_config = llm_config
+        self.model_name = model_name
         self.target_col = target_col
         self.max_features = max_features
         self.feature_prefix = feature_prefix
-        self.llm_interface = LLMInterface(llm_config)
+        self.llm_interface = LLMInterface(model_name=model_name, **kwargs)
         self.feature_evaluator = FeatureEvaluator()
         self.generated_features: List[Dict[str, Any]] = []
 
@@ -63,10 +66,7 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         self : LLMFeatureEngineer
             The fitted transformer
         """
-        llm_interface = LLMInterface(self.llm_config)
-        self.generated_features = llm_interface.generate_feature_ideas(
-            X, self.target_col, self.max_features
-        )
+        pass
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """

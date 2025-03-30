@@ -10,6 +10,7 @@ Given the following dataset information, suggest meaningful features that could 
 Dataset Information:
 {data_description}
 
+Target Description:
 {target_description}
 
 Additional Context:
@@ -21,12 +22,13 @@ Generate feature engineering ideas that:
 3. Capture meaningful patterns and relationships
 4. Are computationally feasible
 
-For each feature, provide:
-1. A descriptive name
-2. A clear explanation of what it represents
-3. The type of feature (numerical, categorical, etc.)
-4. The input columns required
+For each feature provide:
+1. A descriptive name that reflects the feature's purpose
+2. A clear explanation of what the feature represents and why it's useful
+3. A precise formula or logic to create the feature (using Python/Pandas syntax)
 
-Respond in a structured format that can be parsed into the following schema:
-{feature_schema}
+Your response should be a list of features in JSON format, where each feature has:
+- name: A clear, descriptive name
+- description: A detailed explanation of the feature
+- formula: The exact formula or transformation logic using column names from the dataset
 """

@@ -2,14 +2,18 @@
 Module for handling interactions with Language Models.
 """
 
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from langchain.chat_models import init_chat_model
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import ChatPromptTemplate
 
 from skfeaturellm.prompts import FEATURE_ENGINEERING_PROMPT
-from skfeaturellm.schemas import FeatureEngineeringIdeas
+from skfeaturellm.schemas import (
+    FeatureDescription,
+    FeatureDescriptions,
+    FeatureEngineeringIdeas,
+)
 
 
 class LLMInterface:
@@ -32,8 +36,12 @@ class LLMInterface:
 
     def __init__(self, model_name: str = "gpt-4o", **kwargs):
         self.llm = init_chat_model(model=model_name, **kwargs)
-
-        self.generate_prompt()
+        self.output_parser = PydanticOutputParser(
+            pydantic_object=FeatureEngineeringIdeas
+        )
+        self.prompt_template = ChatPromptTemplate.from_template(
+            FEATURE_ENGINEERING_PROMPT
+        ).partial(format_instructions=self.output_parser.get_format_instructions())
 
     def generate_engineered_features(
         self,
@@ -60,33 +68,94 @@ class LLMInterface:
         """
         pass
 
-    def generate_prompt(self):
+    def _format_feature_descriptions(self, features: List[FeatureDescription]) -> str:
+        """
+        Format feature descriptions in a human-readable way.
+
+        Parameters
+        ----------
+        features : List[FeatureDescription]
+            List of feature descriptions
+
+        Returns
+        -------
+        str
+            Formatted feature descriptions
+        """
+        formatted_features = []
+        for feature in features:
+            formatted_feature = (
+                f"- {feature.name} ({feature.type}): {feature.description}"
+            )
+            formatted_features.append(formatted_feature)
+        return "\n".join(formatted_features)
+
+    def generate_prompt(
+        self,
+        feature_descriptions: List[Dict[str, str]],
+        target_description: Optional[str] = None,
+        max_features: Optional[int] = None,
+    ) -> str:
         """
         Generate the prompt for the LLM.
+
+        Parameters
+        ----------
+        feature_descriptions : List[Dict[str, str]]
+            List of dictionaries containing feature descriptions
+        target_description : Optional[str]
+            Description of the target variable and task
+        max_features : Optional[int]
+            Maximum number of features to generate
+
+        Returns
+        -------
+        str
+            Formatted prompt
         """
-        self.output_parser = PydanticOutputParser(
-            pydantic_object=FeatureEngineeringIdeas
+        # Convert dictionaries to FeatureDescription objects
+        feature_descriptions_list = [
+            FeatureDescription(**feature) for feature in feature_descriptions
+        ]
+        feature_descriptions_schema = FeatureDescriptions(
+            features=feature_descriptions_list
         )
-        self.prompt = ChatPromptTemplate.from_template(
-            FEATURE_ENGINEERING_PROMPT
-        ).partial(format_instructions=self.output_parser.get_format_instructions())
+
+        if target_description is None:
+            target_description_message = (
+                "This is an unsupervised feature engineering task."
+            )
+        else:
+            target_description_message = target_description
+
+        additional_context = (
+            f"Generate up to {max_features} features." if max_features else ""
+        )
+
+        return self.prompt_template.format(
+            feature_descriptions=feature_descriptions_schema.format(),
+            target_description=target_description_message,
+            additional_context=additional_context,
+        )
 
 
 if __name__ == "__main__":
-    llm_interface = LLMInterface()
+    # Example usage
+    feature_descriptions = [
+        {"name": "age", "type": "int", "description": "Customer age in years"},
+        {"name": "income", "type": "float", "description": "Annual income in USD"},
+        {
+            "name": "education",
+            "type": "str",
+            "description": "Highest level of education completed",
+        },
+    ]
 
-    print(
-        llm_interface.prompt.invoke(
-            {
-                "data_description": (
-                    "Dataset with columns: age (int), income (float), education (str)"
-                ),
-                "target_description": (
-                    "Binary classification task predicting customer churn"
-                ),
-                "additional_context": (
-                    "Generate up to 5 features focusing on customer behavior patterns"
-                ),
-            }
-        ).to_string()
+    llm_interface = LLMInterface()
+    prompt = llm_interface.generate_prompt(
+        feature_descriptions=feature_descriptions,
+        target_description="Binary classification task predicting customer churn",
+        max_features=5,
     )
+
+    print(prompt)

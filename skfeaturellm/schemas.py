@@ -2,9 +2,61 @@
 Pydantic models for data validation and serialization.
 """
 
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
+
+
+class FeatureDescription(BaseModel):
+    """
+    Schema for describing a single feature in the dataset.
+
+    Attributes:
+        name: The name of the feature
+        type: The data type of the feature (e.g., 'int', 'float', 'str', 'datetime')
+        description: A description of what the feature represents
+    """
+
+    name: str = Field(..., description="Name of the feature")
+    type: str = Field(..., description="Data type of the feature")
+    description: str = Field(
+        ..., description="Description of what the feature represents"
+    )
+
+    def format(self) -> str:
+        """
+        Format the feature description in a human-readable way.
+
+        Returns
+        -------
+        str
+            Formatted feature description in the format: "name (type): description"
+        """
+        return f"- {self.name} ({self.type}): {self.description}"
+
+
+class FeatureDescriptions(BaseModel):
+    """
+    Schema for a collection of feature descriptions.
+
+    Attributes:
+        features: List of feature descriptions
+    """
+
+    features: List[FeatureDescription] = Field(
+        ..., description="List of feature descriptions"
+    )
+
+    def format(self) -> str:
+        """
+        Format all feature descriptions in a human-readable way.
+
+        Returns
+        -------
+        str
+            Formatted feature descriptions, one per line
+        """
+        return "\n".join(feature.format() for feature in self.features)
 
 
 class FeatureEngineeringIdea(BaseModel):

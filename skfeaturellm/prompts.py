@@ -8,7 +8,7 @@ FEATURE_ENGINEERING_PROMPT = """You are an expert data scientist specializing in
 Given the following dataset information, suggest meaningful features that could improve model performance.
 
 Dataset Information:
-{data_description}
+{feature_descriptions}
 
 Target Description:
 {target_description}

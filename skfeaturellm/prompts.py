@@ -25,7 +25,7 @@ Generate feature engineering ideas that:
 For each feature provide:
 1. A descriptive name that reflects the feature's purpose
 2. A clear explanation of what the feature represents and why it's useful
-3. A precise formula or logic to create the feature (using Python/Pandas syntax)
+3. A precise formula or logic to create the feature (using Pandas syntax)
 
 Your response should be a list of features in JSON format, where each feature has:
 - name: A clear, descriptive name

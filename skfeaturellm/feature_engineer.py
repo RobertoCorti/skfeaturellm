@@ -199,3 +199,51 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
             Report containing feature statistics and insights
         """
         pass
+
+
+if __name__ == "__main__":
+
+    ## create artificial data with 5 columns: name, age, income, education, city, credit_score and a target column called default
+    X = pd.DataFrame(
+        {
+            "name": ["Alice", "Bob", "Charlie", "David", "Eve"],
+            "age": [25, 30, 35, 40, 45],
+            "income": [50000, 60000, 70000, 80000, 90000],
+            "education": ["Bachelor", "Master", "PhD", "Bachelor", "Master"],
+            "city": ["New York", "Los Angeles", "Chicago", "Houston", "Miami"],
+            "credit_score": [650, 700, 750, 800, 850],
+            "default": [0, 1, 0, 1, 0],
+        }
+    )
+
+    ## create a target column called default
+    y = X["default"]
+
+    ## create a feature description
+    feature_descriptions = [
+        {"name": "name", "type": "str", "description": "The name of the customer"},
+        {"name": "age", "type": "int", "description": "The age of the customer"},
+        {"name": "income", "type": "int", "description": "The income of the customer"},
+        {
+            "name": "education",
+            "type": "str",
+            "description": "The education level of the customer",
+        },
+        {"name": "city", "type": "str", "description": "The city of the customer"},
+        {
+            "name": "credit_score",
+            "type": "int",
+            "description": "The credit score of the customer",
+        },
+    ]
+
+    ## create a LLMFeatureEngineer
+    llm_feature_engineer = LLMFeatureEngineer()
+
+    ## fit the LLMFeatureEngineer
+    llm_feature_engineer.fit(X, y, feature_descriptions=feature_descriptions)
+
+    ## transform the data
+    X_transformed = llm_feature_engineer.transform(X)
+
+    print(X_transformed)

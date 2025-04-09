@@ -101,7 +101,7 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
             Transformed features
         """
         # if fit has not been called, raise an error
-        if not hasattr(self, "generated_features"):
+        if not hasattr(self, "generated_features_ideas"):
             raise ValueError("fit must be called before transform")
 
         # apply the transformations

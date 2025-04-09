@@ -3,7 +3,7 @@ Main module for LLM-powered feature engineering.
 """
 
 import warnings
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -118,7 +118,9 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
 
         return X
 
-    def _parse_feature_idea(self, generated_feature_idea: Dict[str, Any]) -> str:
+    def _parse_feature_idea(
+        self, generated_feature_idea: Dict[str, Any]
+    ) -> Optional[Callable]:
         """
         Parse a feature idea into a formula.
 
@@ -129,7 +131,8 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
 
         Returns
         -------
-        str
+        Optional[Callable]
+            The formula as a lambda function
         """
         try:
             generated_feature_idea_formula_str = generated_feature_idea.formula

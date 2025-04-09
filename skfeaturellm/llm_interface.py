@@ -43,18 +43,20 @@ class LLMInterface:
             FEATURE_ENGINEERING_PROMPT
         ).partial(format_instructions=self.output_parser.get_format_instructions())
 
+        self.chain = self.prompt_template | self.llm | self.output_parser
+
     def generate_engineered_features(
         self,
-        feature_descriptions: Dict[str, str],
+        feature_descriptions: List[FeatureDescription],
         target_description: Optional[str] = None,
         max_features: Optional[int] = None,
     ) -> FeatureEngineeringIdeas:
         """
-        Generate feature engineering ideas using the LLM.
+        Generate feature engineering ideas.
 
         Parameters
         ----------
-        feature_descriptions : Dict[str, str]
+        feature_descriptions : List[FeatureDescription]
             Descriptions for input features
         target_description : Optional[str]
             Description of the target variable and task
@@ -63,10 +65,17 @@ class LLMInterface:
 
         Returns
         -------
-        List[FeatureEngineeringIdea]
-            List of generated feature ideas
+        FeatureEngineeringIdeas
+            Generated feature engineering ideas
         """
-        pass
+
+        prompt_context = self.generate_prompt_context(
+            feature_descriptions=feature_descriptions,
+            target_description=target_description,
+            max_features=max_features,
+        )
+
+        return self.chain.invoke(prompt_context)
 
     def _format_feature_descriptions(self, features: List[FeatureDescription]) -> str:
         """
@@ -90,7 +99,7 @@ class LLMInterface:
             formatted_features.append(formatted_feature)
         return "\n".join(formatted_features)
 
-    def generate_prompt(
+    def generate_prompt_context(
         self,
         feature_descriptions: List[Dict[str, str]],
         target_description: Optional[str] = None,
@@ -132,11 +141,11 @@ class LLMInterface:
             f"Generate up to {max_features} features." if max_features else ""
         )
 
-        return self.prompt_template.format(
-            feature_descriptions=feature_descriptions_schema.format(),
-            target_description=target_description_message,
-            additional_context=additional_context,
-        )
+        return {
+            "feature_descriptions": feature_descriptions_schema.format(),
+            "target_description": target_description_message,
+            "additional_context": additional_context,
+        }
 
 
 if __name__ == "__main__":
@@ -152,10 +161,11 @@ if __name__ == "__main__":
     ]
 
     llm_interface = LLMInterface()
-    prompt = llm_interface.generate_prompt(
+
+    ideas = llm_interface.generate_engineered_features(
         feature_descriptions=feature_descriptions,
         target_description="Binary classification task predicting customer churn",
         max_features=5,
     )
 
-    print(prompt)
+    print(ideas)

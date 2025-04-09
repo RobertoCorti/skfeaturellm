@@ -27,7 +27,7 @@ For each feature provide:
 2. A clear explanation of what the feature represents and why it's useful
 3. A precise formula or logic to create the feature (using Pandas syntax)
 
-Your response should be a list of features in JSON format, where each feature has:
+Your response should be a dictionary witha main key called 'ideas' that contains a list of features in JSON format, where each feature has:
 - name: A clear, descriptive name
 - description: A detailed explanation of the feature
 - formula: The exact formula or transformation logic using column names from the dataset

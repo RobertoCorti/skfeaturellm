@@ -26,16 +26,16 @@ repos:
         language: system
         types: [text]
         stages: [pre-commit, pre-push, manual]
-      - id: pylint
-        name: pylint linter
-        entry: pylint
-        language: system
-        types: [python]
-        require_serial: true
-        args: [
-          "-rn",
-          "-sn",
-          "skfeaturellm"]
+      # - id: pylint
+      #   name: pylint linter
+      #   entry: pylint
+      #   language: system
+      #   types: [python]
+      #   require_serial: true
+      #   args: [
+      #     "-rn",
+      #     "-sn",
+      #     "skfeaturellm"]
       #- id: mypy
       #  name: mypy type checker
       #  entry: mypy

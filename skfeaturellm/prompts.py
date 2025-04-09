@@ -30,5 +30,5 @@ For each feature provide:
 Your response should be a dictionary witha main key called 'ideas' that contains a list of features in JSON format, where each feature has:
 - name: A clear, descriptive name
 - description: A detailed explanation of the feature
-- formula: The exact formula or transformation logic using column names from the dataset
+- formula: The exact formula or transformation logic using column names from the dataset. Should have a lambda function that encapsulates the transformation logic. Example: "lambda df: df['column_name'].div(df['other_column_name'])"
 """

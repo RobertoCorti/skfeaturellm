@@ -164,7 +164,7 @@ if __name__ == "__main__":
 
     ideas = llm_interface.generate_engineered_features(
         feature_descriptions=feature_descriptions,
-        target_description="Binary classification task predicting customer churn",
+        target_description="Binary classification task predicting customer churn, using Tree Ba",
         max_features=5,
     )
 

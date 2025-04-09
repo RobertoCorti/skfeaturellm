@@ -2,6 +2,7 @@
 Main module for LLM-powered feature engineering.
 """
 
+import warnings
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
@@ -50,6 +51,7 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         self,
         X: pd.DataFrame,
         y: Optional[pd.Series] = None,  # pylint: disable=unused-argument
+        feature_descriptions: Optional[List[Dict[str, Any]]] = None,
     ) -> "LLMFeatureEngineer":
         """
         Generate feature engineering ideas using LLM and store the transformations.
@@ -60,13 +62,29 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
             Input features
         y : Optional[pd.Series]
             Target variable for supervised feature engineering
+        feature_descriptions : Optional[List[Dict[str, Any]]]
+            List of feature descriptions
 
         Returns
         -------
         self : LLMFeatureEngineer
             The fitted transformer
         """
-        pass
+        if feature_descriptions is None:
+            # Extract feature descriptions from DataFrame
+            feature_descriptions = [
+                {"name": col, "type": str(X[col].dtype), "description": ""}
+                for col in X.columns
+            ]
+
+        # Generate feature engineering ideas
+        self.generated_features_ideas = self.llm_interface.generate_engineered_features(
+            feature_descriptions=feature_descriptions,
+            target_description=self.target_col,
+            max_features=self.max_features,
+        ).ideas
+
+        return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """
@@ -82,8 +100,49 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         pd.DataFrame
             Transformed features
         """
-        # TODO: Implement feature transformation
+        # if fit has not been called, raise an error
+        if not hasattr(self, "generated_features"):
+            raise ValueError("fit must be called before transform")
+
+        # apply the transformations
+        for generated_feature_idea in self.generated_features_ideas:
+            feature_idea_func = self._parse_feature_idea(generated_feature_idea)
+
+            if feature_idea_func is None:
+                warnings.warn(
+                    f"The formula {generated_feature_idea.formula} is not a valid lambda function. Skipping feature {generated_feature_idea.name}."
+                )
+                continue
+
+            X[generated_feature_idea.name] = feature_idea_func(X)
+
         return X
+
+    def _parse_feature_idea(self, generated_feature_idea: Dict[str, Any]) -> str:
+        """
+        Parse a feature idea into a formula.
+
+        Parameters
+        ----------
+        generated_feature_idea : Dict[str, Any]
+            A feature idea
+
+        Returns
+        -------
+        str
+        """
+        try:
+            generated_feature_idea_formula_str = generated_feature_idea.formula
+            generated_feature_idea_formula = eval(generated_feature_idea_formula_str)
+
+            if not callable(generated_feature_idea_formula) or not isinstance(
+                generated_feature_idea_formula, type(lambda: None)
+            ):
+                raise TypeError("The evaluated result is not a lambda function.")
+
+            return generated_feature_idea_formula
+        except TypeError:
+            return None
 
     def fit_transform(
         self, X: pd.DataFrame, y: Optional[pd.Series] = None, **fit_params: Any
@@ -128,6 +187,7 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         Dict[str, Any]
             Dictionary containing evaluation metrics
         """
+        pass
 
     def generate_report(self) -> FeatureReport:
         """
@@ -138,3 +198,4 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         FeatureReport
             Report containing feature statistics and insights
         """
+        pass

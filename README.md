@@ -8,7 +8,7 @@
   <a href="https://skfeaturellm.readthedocs.io/">
     <img src="https://readthedocs.org/projects/skfeaturellm/badge/?version=latest" alt="Documentation Status">
   </a>
-  <a href="https://github.com/yourusername/skfeaturellm/blob/main/LICENSE">
+  <a href="https://github.com/RobertoCorti/skfeaturellm/blob/feat/docs/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
   </a>
 </div>

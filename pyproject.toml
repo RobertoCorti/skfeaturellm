@@ -22,6 +22,14 @@ pydantic = "^2.0.0"
 langchain-community = "^0.3.20"
 langchain-openai = "^0.3.11"
 
+[tool.poetry.extras]
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+    "sphinx-autodoc-typehints",
+    "nbsphinx"
+]
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

@@ -18,12 +18,10 @@ SKFeatureLLM is a Python library that brings the power of Large Language Models 
 ## 📑 Table of Contents
 
 - [🌟 Key Features](#-key-features)
-- [🚀 Quick Start](#-quick-start)
-- [📚 Documentation](#-documentation)
-- [💡 Examples](#-examples)
 - [🛠 Development](#-development)
 - [🤝 Contributing](#-contributing)
 - [📄 License](#-license)
+- [📚 Documentation](#-documentation)
 
 ## 🌟 Key Features
 
@@ -107,4 +105,13 @@ Please ensure your code passes all checks before submitting a PR.
 - **Roberto Corti** - [GitHub](https://github.com/RobertoCorti)
 - **Stefano Polo** - [GitHub](https://github.com/stefano-polo)
 
-For more examples and detailed documentation, visit our [documentation site](https://skfeaturellm.readthedocs.io/).
+## 📚 Documentation
+
+Our documentation is hosted on Read the Docs and includes:
+
+- 📖 [User Guide](https://skfeaturellm.readthedocs.io/en/latest/user_guide.html) - Learn how to use SKFeatureLLM effectively
+- 🔍 [API Reference](https://skfeaturellm.readthedocs.io/en/latest/api_reference.html) - Detailed documentation of all classes and methods
+- 🎯 [Examples](https://skfeaturellm.readthedocs.io/en/latest/examples.html) - Practical examples for different use cases
+- 📊 [Feature Engineering Guide](https://skfeaturellm.readthedocs.io/en/latest/user_guide.html#feature-engineering) - Best practices for feature engineering with LLMs
+
+For any questions or issues, please open an issue on our GitHub repository.

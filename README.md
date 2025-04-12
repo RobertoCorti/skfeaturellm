@@ -8,18 +8,6 @@
   <a href="https://skfeaturellm.readthedocs.io/">
     <img src="https://readthedocs.org/projects/skfeaturellm/badge/?version=latest" alt="Documentation Status">
   </a>
-  <a href="https://pypi.org/project/skfeaturellm/">
-    <img src="https://img.shields.io/pypi/v/skfeaturellm" alt="PyPI Version">
-  </a>
-  <a href="https://pypi.org/project/skfeaturellm/">
-    <img src="https://img.shields.io/pypi/pyversions/skfeaturellm" alt="Python Versions">
-  </a>
-  <a href="https://github.com/yourusername/skfeaturellm/actions">
-    <img src="https://github.com/yourusername/skfeaturellm/actions/workflows/tests.yml/badge.svg" alt="Tests Status">
-  </a>
-  <a href="https://codecov.io/gh/yourusername/skfeaturellm">
-    <img src="https://codecov.io/gh/yourusername/skfeaturellm/branch/main/graph/badge.svg" alt="Code Coverage">
-  </a>
   <a href="https://github.com/yourusername/skfeaturellm/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
   </a>

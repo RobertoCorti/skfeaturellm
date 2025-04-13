@@ -33,6 +33,17 @@ poetry install
 poetry env use python3 && poetry install && source $(poetry env info --path)/bin/activate
 ```
 
+### ✅ Running Tests
+
+To run the test suite, ensure pytest is installed and execute:
+
+```bash
+poetry run pytest
+```
+
+Tests are located in the `tests/` directory and cover the core functionality of SKFeatureLLM.
+
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.

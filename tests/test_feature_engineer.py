@@ -1,4 +1,4 @@
-"""Tests for LLMFeatureEngineer class."""
+"""Tests for the LLMFeatureEngineer class."""
 
 from unittest.mock import Mock
 
@@ -11,7 +11,7 @@ from skfeaturellm.schemas import FeatureEngineeringIdea
 
 @pytest.fixture
 def sample_data_frame():
-    """Provide a test DataFrame."""
+    """Provide a sample DataFrame for testing."""
     return pd.DataFrame({
         "age": [25, 30],
         "income": [50000, 60000],
@@ -21,16 +21,16 @@ def sample_data_frame():
 
 @pytest.fixture
 def sample_features():
-    """Provide feature descriptions."""
+    """Provide feature descriptions for testing."""
     return [
-        {"name": "age", "type": "int", "description": "Âge du client"},
-        {"name": "income", "type": "float", "description": "Revenu annuel"},
-        {"name": "city", "type": "str", "description": "Ville de résidence"}
+        {"name": "age", "type": "int", "description": "Customer age"},
+        {"name": "income", "type": "float", "description": "Annual income"},
+        {"name": "city", "type": "str", "description": "City of residence"}
     ]
 
 
 def test_initialization(mocker):
-    """Test LLMFeatureEngineer initialization."""
+    """Test initialization of LLMFeatureEngineer."""
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
     engineer = LLMFeatureEngineer(
         model_name="gpt-4o",
@@ -46,7 +46,7 @@ def test_initialization(mocker):
 
 
 def test_fit_no_features(mocker, sample_data_frame):  # pylint: disable=redefined-outer-name
-    """Test fit without explicit feature descriptions."""
+    """Test fit method without explicit feature descriptions."""
     mock_generate = mocker.patch(
         "skfeaturellm.llm_interface.LLMInterface.generate_engineered_features"
     )
@@ -54,20 +54,20 @@ def test_fit_no_features(mocker, sample_data_frame):  # pylint: disable=redefine
         FeatureEngineeringIdea(
             name="age_squared",
             formula="lambda x: x['age'] ** 2",
-            description="Âge au carré"
+            description="Age squared"
         )
     ]
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
 
     engineer = LLMFeatureEngineer(model_name="gpt-4o", model_provider="openai")
-    engineer.generated_features_ideas = mock_generate.return_value  # Simuler fit
+    engineer.generated_features_ideas = mock_generate.return_value  # Simulate fit
     assert len(engineer.generated_features_ideas) == 1
     assert engineer.generated_features_ideas[0].name == "age_squared"
-    mock_generate.assert_not_called()  # fit n'est pas appelé directement ici
+    mock_generate.assert_not_called()  # Fit not called directly here
 
 
 def test_fit_with_features(mocker, sample_data_frame, sample_features):  # pylint: disable=redefined-outer-name
-    """Test fit with provided feature descriptions."""
+    """Test fit method with provided feature descriptions."""
     mock_generate = mocker.patch(
         "skfeaturellm.llm_interface.LLMInterface.generate_engineered_features"
     )
@@ -75,20 +75,20 @@ def test_fit_with_features(mocker, sample_data_frame, sample_features):  # pylin
         FeatureEngineeringIdea(
             name="income_plus",
             formula="lambda x: x['income'] + 1",
-            description="Revenu plus un"
+            description="Income plus one"
         )
     ]
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
 
     engineer = LLMFeatureEngineer(model_name="gpt-4o", model_provider="openai")
-    engineer.generated_features_ideas = mock_generate.return_value  # Simuler fit
+    engineer.generated_features_ideas = mock_generate.return_value  # Simulate fit
     assert len(engineer.generated_features_ideas) == 1
     assert engineer.generated_features_ideas[0].name == "income_plus"
     mock_generate.assert_not_called()
 
 
 def test_transform_without_fit(mocker, sample_data_frame):  # pylint: disable=redefined-outer-name
-    """Test transform raises error if fit not called."""
+    """Test that transform raises an error if fit is not called."""
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
     engineer = LLMFeatureEngineer(model_name="gpt-4o", model_provider="openai")
     with pytest.raises(ValueError, match="fit must be called before transform"):
@@ -104,13 +104,13 @@ def test_transform_valid_feature(mocker, sample_data_frame):  # pylint: disable=
         FeatureEngineeringIdea(
             name="age_double",
             formula="lambda x: x['age'] * 2",
-            description="Double de l'âge"
+            description="Double the age"
         )
     ]
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
 
     engineer = LLMFeatureEngineer(model_name="gpt-4o", model_provider="openai")
-    engineer.generated_features_ideas = mock_generate.return_value  # Simuler fit
+    engineer.generated_features_ideas = mock_generate.return_value  # Simulate fit
     transformed_data = engineer.transform(sample_data_frame)
 
     assert "age_double" in transformed_data.columns
@@ -126,12 +126,12 @@ def test_transform_invalid_feature(mocker, sample_data_frame):  # pylint: disabl
         FeatureEngineeringIdea(
             name="invalid_feature",
             formula="lambda x: x['unknown_column']",
-            description="Formule invalide"
+            description="Invalid formula"
         )
     ]
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
 
     engineer = LLMFeatureEngineer(model_name="gpt-4o", model_provider="openai")
-    engineer.generated_features_ideas = mock_generate.return_value  # Simuler fit
+    engineer.generated_features_ideas = mock_generate.return_value  # Simulate fit
     with pytest.raises(KeyError, match="unknown_column"):
         engineer.transform(sample_data_frame)

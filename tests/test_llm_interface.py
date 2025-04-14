@@ -13,7 +13,7 @@ def sample_features():
     """Provide feature descriptions for testing."""
     return [
         {"name": "age", "type": "int", "description": "Customer age"},
-        {"name": "income", "type": "float", "description": "Annual income"}
+        {"name": "income", "type": "float", "description": "Annual income"},
     ]
 
 
@@ -24,14 +24,14 @@ def test_initialization(mocker):
     assert llm is not None  # Verify successful initialization
 
 
-def test_format_features(mocker, sample_features):  # pylint: disable=redefined-outer-name
+def test_format_features(
+    mocker, sample_features
+):  # pylint: disable=redefined-outer-name
     """Test formatting of feature descriptions via generate_prompt_context."""
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
     llm = LLMInterface(model_name="gpt-4o", model_provider="openai")
     prompt_context = llm.generate_prompt_context(
-        feature_descriptions=sample_features,
-        target_description="Test",
-        max_features=1
+        feature_descriptions=sample_features, target_description="Test", max_features=1
     )
     formatted = prompt_context["feature_descriptions"]
     assert "- age (int): Customer age" in formatted
@@ -39,14 +39,16 @@ def test_format_features(mocker, sample_features):  # pylint: disable=redefined-
     assert "\n" in formatted
 
 
-def test_generate_prompt(mocker, sample_features):  # pylint: disable=redefined-outer-name
+def test_generate_prompt(
+    mocker, sample_features
+):  # pylint: disable=redefined-outer-name
     """Test generation of prompt context."""
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
     llm = LLMInterface(model_name="gpt-4o", model_provider="openai")
     prompt_context = llm.generate_prompt_context(
         feature_descriptions=sample_features,
         target_description="Predict churn",
-        max_features=3
+        max_features=3,
     )
     assert isinstance(prompt_context, dict)
     assert "feature_descriptions" in prompt_context
@@ -55,14 +57,14 @@ def test_generate_prompt(mocker, sample_features):  # pylint: disable=redefined-
     assert "Generate up to 3 features" in prompt_context["additional_context"]
 
 
-def test_generate_prompt_unsupervised(mocker, sample_features):  # pylint: disable=redefined-outer-name
+def test_generate_prompt_unsupervised(
+    mocker, sample_features
+):  # pylint: disable=redefined-outer-name
     """Test prompt context generation without a target."""
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
     llm = LLMInterface(model_name="gpt-4o", model_provider="openai")
     prompt_context = llm.generate_prompt_context(
-        feature_descriptions=sample_features,
-        target_description=None,
-        max_features=None
+        feature_descriptions=sample_features, target_description=None, max_features=None
     )
     assert prompt_context["target_description"] == (
         "This is an unsupervised feature engineering task."
@@ -70,7 +72,9 @@ def test_generate_prompt_unsupervised(mocker, sample_features):  # pylint: disab
     assert prompt_context["additional_context"] == ""
 
 
-def test_generate_features(mocker, sample_features):  # pylint: disable=redefined-outer-name
+def test_generate_features(
+    mocker, sample_features
+):  # pylint: disable=redefined-outer-name
     """Test feature engineering generation with mock."""
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
     llm = LLMInterface(model_name="gpt-4o", model_provider="openai")
@@ -80,14 +84,12 @@ def test_generate_features(mocker, sample_features):  # pylint: disable=redefine
         FeatureEngineeringIdea(
             name="age_squared",
             formula="lambda x: x['age'] ** 2",
-            description="Age squared"
+            description="Age squared",
         )
     ]
 
     result = llm.generate_engineered_features(
-        feature_descriptions=sample_features,
-        target_description="Test",
-        max_features=2
+        feature_descriptions=sample_features, target_description="Test", max_features=2
     )
     assert isinstance(result, list)
     assert len(result) == 1

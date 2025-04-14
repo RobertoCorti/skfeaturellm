@@ -1,4 +1,4 @@
-"""Tests for LLMInterface class."""
+"""Tests for the LLMInterface class."""
 
 from unittest.mock import Mock
 
@@ -10,22 +10,22 @@ from skfeaturellm.schemas import FeatureEngineeringIdea
 
 @pytest.fixture
 def sample_features():
-    """Provide feature descriptions."""
+    """Provide feature descriptions for testing."""
     return [
-        {"name": "age", "type": "int", "description": "Âge du client"},
-        {"name": "income", "type": "float", "description": "Revenu annuel"}
+        {"name": "age", "type": "int", "description": "Customer age"},
+        {"name": "income", "type": "float", "description": "Annual income"}
     ]
 
 
 def test_initialization(mocker):
-    """Test LLMInterface initialization."""
+    """Test initialization of LLMInterface."""
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
     llm = LLMInterface(model_name="gpt-4o", model_provider="openai")
-    assert llm is not None  # Vérifie que l'initialisation réussit
+    assert llm is not None  # Verify successful initialization
 
 
 def test_format_features(mocker, sample_features):  # pylint: disable=redefined-outer-name
-    """Test feature descriptions formatting via generate_prompt_context."""
+    """Test formatting of feature descriptions via generate_prompt_context."""
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
     llm = LLMInterface(model_name="gpt-4o", model_provider="openai")
     prompt_context = llm.generate_prompt_context(
@@ -34,29 +34,29 @@ def test_format_features(mocker, sample_features):  # pylint: disable=redefined-
         max_features=1
     )
     formatted = prompt_context["feature_descriptions"]
-    assert "- age (int): Âge du client" in formatted
-    assert "- income (float): Revenu annuel" in formatted
+    assert "- age (int): Customer age" in formatted
+    assert "- income (float): Annual income" in formatted
     assert "\n" in formatted
 
 
 def test_generate_prompt(mocker, sample_features):  # pylint: disable=redefined-outer-name
-    """Test prompt context generation."""
+    """Test generation of prompt context."""
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
     llm = LLMInterface(model_name="gpt-4o", model_provider="openai")
     prompt_context = llm.generate_prompt_context(
         feature_descriptions=sample_features,
-        target_description="Prédire le churn",
+        target_description="Predict churn",
         max_features=3
     )
     assert isinstance(prompt_context, dict)
     assert "feature_descriptions" in prompt_context
     assert "target_description" in prompt_context
-    assert prompt_context["target_description"] == "Prédire le churn"
+    assert prompt_context["target_description"] == "Predict churn"
     assert "Generate up to 3 features" in prompt_context["additional_context"]
 
 
 def test_generate_prompt_unsupervised(mocker, sample_features):  # pylint: disable=redefined-outer-name
-    """Test prompt context generation without target."""
+    """Test prompt context generation without a target."""
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
     llm = LLMInterface(model_name="gpt-4o", model_provider="openai")
     prompt_context = llm.generate_prompt_context(
@@ -80,7 +80,7 @@ def test_generate_features(mocker, sample_features):  # pylint: disable=redefine
         FeatureEngineeringIdea(
             name="age_squared",
             formula="lambda x: x['age'] ** 2",
-            description="Âge au carré"
+            description="Age squared"
         )
     ]
 

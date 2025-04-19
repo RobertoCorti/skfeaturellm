@@ -3,7 +3,9 @@ name: CI/CD for SKFeatureLLM
 on:
   push:
     branches:
-      - '**'  # Run pre-commit on all branches
+      - '**'  # Run pre-commit and tests on all branches
+    tags:
+      - 'v*'  # Also trigger when a version tag (e.g., v1.0.0) is pushed
   pull_request:
     branches:
       - '**'  # Run pre-commit and tests on PRs
@@ -49,7 +51,6 @@ jobs:
   run-tests:
     name: Run Tests
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.base_ref == 'main'  # Only on PRs to main
 
     steps:
       - name: Checkout repository
@@ -85,9 +86,10 @@ jobs:
 
   publish:
     name: Publish to PyPI
-    needs: [pre-commit, run-tests]  # Only run if both pass
+    needs: [pre-commit, run-tests]  # Only run if both previous jobs pass
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'  # Only on push to main
+    # Only run this job for push events that are tags (version tags)
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     environment:
       name: pypi
       url: https://pypi.org/p/skfeaturellm

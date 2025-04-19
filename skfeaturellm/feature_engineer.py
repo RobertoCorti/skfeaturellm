@@ -11,6 +11,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from skfeaturellm.feature_evaluation import FeatureEvaluator
 from skfeaturellm.llm_interface import LLMInterface
 from skfeaturellm.reporting import FeatureReport
+from skfeaturellm.types import ProblemType
 
 
 class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
@@ -21,6 +22,8 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
     ----------
     model_name : str, default="gpt-4"
         Name of the model to use
+    problem_type : str
+        Machine learning problem type (classification or regression)
     target_col : Optional[str]
         Name of the target column for supervised feature engineering
     max_features : Optional[int]
@@ -33,25 +36,27 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
 
     def __init__(
         self,
+        problem_type: str,
         model_name: str = "gpt-4",
         target_col: Optional[str] = None,
         max_features: Optional[int] = None,
         feature_prefix: str = "llm_feat_",
         **kwargs,
     ):
+        self.problem_type = ProblemType(problem_type)
         self.model_name = model_name
         self.target_col = target_col
         self.max_features = max_features
         self.feature_prefix = feature_prefix
         self.llm_interface = LLMInterface(model_name=model_name, **kwargs)
-        self.feature_evaluator = FeatureEvaluator()
         self.generated_features: List[Dict[str, Any]] = []
+        self.feature_evaluator = FeatureEvaluator(self.problem_type)
 
     def fit(
         self,
         X: pd.DataFrame,
-        y: Optional[pd.Series] = None,  # pylint: disable=unused-argument
         feature_descriptions: Optional[List[Dict[str, Any]]] = None,
+        target_description: Optional[str] = None,
     ) -> "LLMFeatureEngineer":
         """
         Generate feature engineering ideas using LLM and store the transformations.
@@ -64,6 +69,8 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
             Target variable for supervised feature engineering
         feature_descriptions : Optional[List[Dict[str, Any]]]
             List of feature descriptions
+        target_description : Optional[str]
+            Description of the target variable
 
         Returns
         -------
@@ -80,7 +87,8 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         # Generate feature engineering ideas
         self.generated_features_ideas = self.llm_interface.generate_engineered_features(
             feature_descriptions=feature_descriptions,
-            target_description=self.target_col,
+            problem_type=self.problem_type.value,
+            target_description=target_description,
             max_features=self.max_features,
         ).ideas
 
@@ -98,7 +106,7 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         Returns
         -------
         pd.DataFrame
-            Transformed features
+            Input dataframe with the generated features
         """
         # if fit has not been called, raise an error
         if not hasattr(self, "generated_features_ideas"):
@@ -106,15 +114,20 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
 
         # apply the transformations
         for generated_feature_idea in self.generated_features_ideas:
-            feature_idea_func = self._parse_feature_idea(generated_feature_idea)
 
-            if feature_idea_func is None:
+            try:
+                feature_idea_func = self._parse_feature_idea(generated_feature_idea)
+                X[generated_feature_idea.name] = feature_idea_func(X)
+            except Exception as e:
                 warnings.warn(
                     f"The formula {generated_feature_idea.formula} is not a valid lambda function. Skipping feature {generated_feature_idea.name}."
                 )
-                continue
 
-            X[generated_feature_idea.name] = feature_idea_func(X)
+        self.generated_features = [
+            generated_feature_idea
+            for generated_feature_idea in self.generated_features_ideas
+            if generated_feature_idea.name in X.columns
+        ]
 
         return X
 
@@ -170,9 +183,9 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
     def evaluate_features(
         self,
         X: pd.DataFrame,
-        y: Optional[pd.Series] = None,
-        metrics: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        y: pd.Series,
+        is_transformed: bool = False,
+    ) -> pd.DataFrame:
         """
         Evaluate the quality of generated features.
 
@@ -180,17 +193,27 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         ----------
         X : pd.DataFrame
             Input features
-        y : Optional[pd.Series]
-            Target variable for supervised evaluation
-        metrics : Optional[List[str]]
-            List of metrics to compute
+        y : pd.Series
+            Target variable
+        is_transformed : bool
+            Whether the features have already been transformed
 
         Returns
         -------
-        Dict[str, Any]
-            Dictionary containing evaluation metrics
+        pd.DataFrame
+            DataFrame with features as rows and metrics as columns
         """
-        pass
+
+        if not hasattr(self, "generated_features"):
+            raise ValueError("fit must be called before evaluate_features")
+
+        generated_features_names = [idea.name for idea in self.generated_features]
+
+        X_transformed = self.transform(X) if is_transformed else X
+
+        return self.feature_evaluator.evaluate(
+            X_transformed, y, features=generated_features_names
+        )
 
     def generate_report(self) -> FeatureReport:
         """
@@ -240,13 +263,26 @@ if __name__ == "__main__":
         },
     ]
 
+    target_description = "A binary variable indicating whether the customer has defaulted on their credit card"
+
     ## create a LLMFeatureEngineer
-    llm_feature_engineer = LLMFeatureEngineer()
+    llm_feature_engineer = LLMFeatureEngineer(problem_type="classification")
 
     ## fit the LLMFeatureEngineer
-    llm_feature_engineer.fit(X, y, feature_descriptions=feature_descriptions)
+    llm_feature_engineer.fit(
+        X,
+        feature_descriptions=feature_descriptions,
+        target_description=target_description,
+    )
 
     ## transform the data
     X_transformed = llm_feature_engineer.transform(X)
 
     print(X_transformed)
+
+    ## evaluate the features
+    evaluation_results = llm_feature_engineer.evaluate_features(
+        X_transformed, y, is_transformed=True
+    )
+
+    print(evaluation_results)

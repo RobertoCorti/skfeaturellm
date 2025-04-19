@@ -57,18 +57,23 @@ def test_generate_prompt(
     assert "Generate up to 3 features" in prompt_context["additional_context"]
 
 
-def test_generate_prompt_unsupervised(
+def test_generate_prompt_no_target_description(
     mocker, sample_features
 ):  # pylint: disable=redefined-outer-name
     """Test prompt context generation without a target."""
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
     llm = LLMInterface(model_name="gpt-4o", model_provider="openai")
     prompt_context = llm.generate_prompt_context(
-        feature_descriptions=sample_features, target_description=None, max_features=None
+        feature_descriptions=sample_features,
+        problem_type="classification",
+        target_description=None,
+        max_features=None,
     )
-    assert prompt_context["target_description"] == (
-        "This is an unsupervised feature engineering task."
+
+    assert (
+        prompt_context["problem_type"] == "This is a supervised classification problem."
     )
+    assert prompt_context["target_description"] == ("Not specified.")
     assert prompt_context["additional_context"] == ""
 
 

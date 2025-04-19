@@ -95,8 +95,7 @@ jobs:
       name: pypi
       url: https://pypi.org/p/skfeaturellm
     permissions:
-      id-token: write   # Required for Trusted Publishing
-      contents: write   # Required for pushing tags
+      id-token: write  # Required for Trusted Publishing
 
     steps:
       - name: Checkout repository
@@ -134,6 +133,13 @@ jobs:
         run: |
           poetry version ${{ steps.get_version.outputs.new_version }}
 
+      - name: Build package
+        run: |
+          poetry build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
       - name: Create and push version tag
         if: github.ref == 'refs/heads/main'
         run: |
@@ -141,12 +147,3 @@ jobs:
           git config --local user.name "GitHub Action"
           git tag -a "v${{ steps.get_version.outputs.new_version }}" -m "Version ${{ steps.get_version.outputs.new_version }}"
           git push origin "v${{ steps.get_version.outputs.new_version }}"
-
-      - name: Build package
-        run: |
-          poetry build
-
-      - name: Publish to PyPI
-        run: |
-          poetry config pypi-token.pypi ${{ secrets.PYPI_API_TOKEN }}
-          poetry publish

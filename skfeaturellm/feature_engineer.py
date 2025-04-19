@@ -11,6 +11,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from skfeaturellm.feature_evaluation import FeatureEvaluator
 from skfeaturellm.llm_interface import LLMInterface
 from skfeaturellm.reporting import FeatureReport
+from skfeaturellm.types import ProblemType
 
 
 class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
@@ -21,6 +22,8 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
     ----------
     model_name : str, default="gpt-4"
         Name of the model to use
+    problem_type : str
+        Machine learning problem type (classification or regression)
     target_col : Optional[str]
         Name of the target column for supervised feature engineering
     max_features : Optional[int]
@@ -33,25 +36,27 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
 
     def __init__(
         self,
+        problem_type: str,
         model_name: str = "gpt-4",
         target_col: Optional[str] = None,
         max_features: Optional[int] = None,
         feature_prefix: str = "llm_feat_",
         **kwargs,
     ):
+        self.problem_type = ProblemType(problem_type)
         self.model_name = model_name
         self.target_col = target_col
         self.max_features = max_features
         self.feature_prefix = feature_prefix
         self.llm_interface = LLMInterface(model_name=model_name, **kwargs)
-        self.feature_evaluator = FeatureEvaluator()
         self.generated_features: List[Dict[str, Any]] = []
+        self.feature_evaluator = FeatureEvaluator(self.problem_type)
 
     def fit(
         self,
         X: pd.DataFrame,
-        y: Optional[pd.Series] = None,  # pylint: disable=unused-argument
         feature_descriptions: Optional[List[Dict[str, Any]]] = None,
+        target_description: Optional[str] = None,
     ) -> "LLMFeatureEngineer":
         """
         Generate feature engineering ideas using LLM and store the transformations.
@@ -64,6 +69,8 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
             Target variable for supervised feature engineering
         feature_descriptions : Optional[List[Dict[str, Any]]]
             List of feature descriptions
+        target_description : Optional[str]
+            Description of the target variable
 
         Returns
         -------
@@ -80,7 +87,8 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         # Generate feature engineering ideas
         self.generated_features_ideas = self.llm_interface.generate_engineered_features(
             feature_descriptions=feature_descriptions,
-            target_description=self.target_col,
+            problem_type=self.problem_type.value,
+            target_description=target_description,
             max_features=self.max_features,
         ).ideas
 
@@ -98,7 +106,7 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         Returns
         -------
         pd.DataFrame
-            Transformed features
+            Input dataframe with the generated features
         """
         # if fit has not been called, raise an error
         if not hasattr(self, "generated_features_ideas"):
@@ -106,15 +114,20 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
 
         # apply the transformations
         for generated_feature_idea in self.generated_features_ideas:
-            feature_idea_func = self._parse_feature_idea(generated_feature_idea)
 
-            if feature_idea_func is None:
+            try:
+                feature_idea_func = self._parse_feature_idea(generated_feature_idea)
+                X[generated_feature_idea.name] = feature_idea_func(X)
+            except Exception as e:
                 warnings.warn(
                     f"The formula {generated_feature_idea.formula} is not a valid lambda function. Skipping feature {generated_feature_idea.name}."
                 )
-                continue
 
-            X[generated_feature_idea.name] = feature_idea_func(X)
+        self.generated_features = [
+            generated_feature_idea
+            for generated_feature_idea in self.generated_features_ideas
+            if generated_feature_idea.name in X.columns
+        ]
 
         return X
 
@@ -170,9 +183,9 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
     def evaluate_features(
         self,
         X: pd.DataFrame,
-        y: Optional[pd.Series] = None,
-        metrics: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        y: pd.Series,
+        is_transformed: bool = False,
+    ) -> pd.DataFrame:
         """
         Evaluate the quality of generated features.
 
@@ -180,17 +193,27 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         ----------
         X : pd.DataFrame
             Input features
-        y : Optional[pd.Series]
-            Target variable for supervised evaluation
-        metrics : Optional[List[str]]
-            List of metrics to compute
+        y : pd.Series
+            Target variable
+        is_transformed : bool
+            Whether the features have already been transformed
 
         Returns
         -------
-        Dict[str, Any]
-            Dictionary containing evaluation metrics
+        pd.DataFrame
+            DataFrame with features as rows and metrics as columns
         """
-        pass
+
+        if not hasattr(self, "generated_features"):
+            raise ValueError("fit must be called before evaluate_features")
+
+        generated_features_names = [idea.name for idea in self.generated_features]
+
+        X_transformed = self.transform(X) if is_transformed else X
+
+        return self.feature_evaluator.evaluate(
+            X_transformed, y, features=generated_features_names
+        )
 
     def generate_report(self) -> FeatureReport:
         """
@@ -201,52 +224,4 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         FeatureReport
             Report containing feature statistics and insights
         """
-        pass
-
-
-if __name__ == "__main__":
-
-    ## create artificial data with 5 columns: name, age, income, education, city, credit_score and a target column called default
-    X = pd.DataFrame(
-        {
-            "name": ["Alice", "Bob", "Charlie", "David", "Eve"],
-            "age": [25, 30, 35, 40, 45],
-            "income": [50000, 60000, 70000, 80000, 90000],
-            "education": ["Bachelor", "Master", "PhD", "Bachelor", "Master"],
-            "city": ["New York", "Los Angeles", "Chicago", "Houston", "Miami"],
-            "credit_score": [650, 700, 750, 800, 850],
-            "default": [0, 1, 0, 1, 0],
-        }
-    )
-
-    ## create a target column called default
-    y = X["default"]
-
-    ## create a feature description
-    feature_descriptions = [
-        {"name": "name", "type": "str", "description": "The name of the customer"},
-        {"name": "age", "type": "int", "description": "The age of the customer"},
-        {"name": "income", "type": "int", "description": "The income of the customer"},
-        {
-            "name": "education",
-            "type": "str",
-            "description": "The education level of the customer",
-        },
-        {"name": "city", "type": "str", "description": "The city of the customer"},
-        {
-            "name": "credit_score",
-            "type": "int",
-            "description": "The credit score of the customer",
-        },
-    ]
-
-    ## create a LLMFeatureEngineer
-    llm_feature_engineer = LLMFeatureEngineer()
-
-    ## fit the LLMFeatureEngineer
-    llm_feature_engineer.fit(X, y, feature_descriptions=feature_descriptions)
-
-    ## transform the data
-    X_transformed = llm_feature_engineer.transform(X)
-
-    print(X_transformed)
+        raise NotImplementedError("This feature is not yet implemented.")

@@ -14,6 +14,7 @@ from skfeaturellm.schemas import (
     FeatureDescriptions,
     FeatureEngineeringIdeas,
 )
+from skfeaturellm.types import ProblemType
 
 
 class LLMInterface:
@@ -50,6 +51,7 @@ class LLMInterface:
         feature_descriptions: List[FeatureDescription],
         target_description: Optional[str] = None,
         max_features: Optional[int] = None,
+        problem_type: Optional[ProblemType] = None,
     ) -> FeatureEngineeringIdeas:
         """
         Generate feature engineering ideas.
@@ -72,6 +74,7 @@ class LLMInterface:
         prompt_context = self.generate_prompt_context(
             feature_descriptions=feature_descriptions,
             target_description=target_description,
+            problem_type=problem_type,
             max_features=max_features,
         )
 
@@ -104,6 +107,7 @@ class LLMInterface:
         feature_descriptions: List[Dict[str, str]],
         target_description: Optional[str] = None,
         max_features: Optional[int] = None,
+        problem_type: Optional[ProblemType] = None,
     ) -> str:
         """
         Generate the prompt for the LLM.
@@ -130,12 +134,14 @@ class LLMInterface:
             features=feature_descriptions_list
         )
 
-        if target_description is None:
-            target_description_message = (
-                "This is an unsupervised feature engineering task."
-            )
-        else:
-            target_description_message = target_description
+        problem_type_message = (
+            f"This is a supervised {problem_type} problem."
+            if problem_type is not None
+            else "Not specified."
+        )
+        target_description_message = (
+            target_description if target_description is not None else "Not specified."
+        )
 
         additional_context = (
             f"Generate up to {max_features} features." if max_features else ""
@@ -143,29 +149,7 @@ class LLMInterface:
 
         return {
             "feature_descriptions": feature_descriptions_schema.format(),
+            "problem_type": problem_type_message,
             "target_description": target_description_message,
             "additional_context": additional_context,
         }
-
-
-if __name__ == "__main__":
-    # Example usage
-    feature_descriptions = [
-        {"name": "age", "type": "int", "description": "Customer age in years"},
-        {"name": "income", "type": "float", "description": "Annual income in USD"},
-        {
-            "name": "education",
-            "type": "str",
-            "description": "Highest level of education completed",
-        },
-    ]
-
-    llm_interface = LLMInterface()
-
-    ideas = llm_interface.generate_engineered_features(
-        feature_descriptions=feature_descriptions,
-        target_description="Binary classification task predicting customer churn, using Tree Ba",
-        max_features=5,
-    )
-
-    print(ideas)

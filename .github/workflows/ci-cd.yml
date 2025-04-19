@@ -3,7 +3,10 @@ name: CI/CD for SKFeatureLLM
 on:
   push:
     branches:
-      - '**'  # Run pre-commit on all branches
+      - '**'  # Run pre-commit and tests on all branches
+      - 'main'  # Also run publish on main branch
+    tags:
+      - 'v*'  # Also trigger when a version tag (e.g., v1.0.0) is pushed
   pull_request:
     branches:
       - '**'  # Run pre-commit and tests on PRs
@@ -49,7 +52,6 @@ jobs:
   run-tests:
     name: Run Tests
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.base_ref == 'main'  # Only on PRs to main
 
     steps:
       - name: Checkout repository
@@ -85,9 +87,10 @@ jobs:
 
   publish:
     name: Publish to PyPI
-    needs: [pre-commit, run-tests]  # Only run if both pass
+    needs: [pre-commit, run-tests]  # Only run if both previous jobs pass
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'  # Only on push to main
+    # Run this job for main branch pushes or version tags
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     environment:
       name: pypi
       url: https://pypi.org/p/skfeaturellm
@@ -97,6 +100,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required to get git history for version detection
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -110,9 +115,35 @@ jobs:
           virtualenvs-create: true
           virtualenvs-in-project: true
 
+      - name: Get latest version
+        id: get_version
+        run: |
+          # Get the latest version tag
+          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          # Remove the 'v' prefix
+          latest_version=${latest_tag#v}
+          # Split into major.minor.patch
+          IFS='.' read -r major minor patch <<< "$latest_version"
+          # Increment patch version
+          new_patch=$((patch + 1))
+          new_version="${major}.${minor}.${new_patch}"
+          echo "new_version=${new_version}" >> $GITHUB_OUTPUT
+
+      - name: Update version in pyproject.toml
+        run: |
+          poetry version ${{ steps.get_version.outputs.new_version }}
+
       - name: Build package
         run: |
           poetry build
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Create and push version tag
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git tag -a "v${{ steps.get_version.outputs.new_version }}" -m "Version ${{ steps.get_version.outputs.new_version }}"
+          git push origin "v${{ steps.get_version.outputs.new_version }}"

@@ -155,8 +155,10 @@ jobs:
 
       - name: Update version in pyproject.toml
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          poetry version ${VERSION#v}
+          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          # Remove the 'v' prefix
+          latest_version=${latest_tag#v}
+          poetry version $latest_version
 
       - name: Build package
         run: |

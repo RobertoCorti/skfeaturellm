@@ -2,22 +2,29 @@
 Module for evaluating the quality of generated features.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Dict, List
 
+import numpy as np
 import pandas as pd
-from sklearn.feature_selection import mutual_info_classif, mutual_info_regression
+from sklearn.feature_selection import mutual_info_classif
+from sklearn.preprocessing import OrdinalEncoder
+
+from skfeaturellm.types import ProblemType
 
 
 class FeatureEvaluator:  # pylint: disable=too-few-public-methods
     """Class for evaluating the quality of generated features."""
 
-    def evaluate(
+    def __init__(
         self,
-        X: pd.DataFrame,
-        feature_specs: List[Dict[str, Any]],  # pylint: disable=unused-argument
-        y: Optional[pd.Series] = None,
-        metrics: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        problem_type: ProblemType,
+    ):
+        self.problem_type = problem_type
+        self.results = {}
+
+    def evaluate(
+        self, X: pd.DataFrame, y: pd.Series, features: List[str]
+    ) -> pd.DataFrame:
         """
         Evaluate features using various metrics.
 
@@ -25,48 +32,86 @@ class FeatureEvaluator:  # pylint: disable=too-few-public-methods
         ----------
         X : pd.DataFrame
             Input features
-        feature_specs : List[Dict[str, Any]]
-            Specifications of generated features
-        y : Optional[pd.Series]
-            Target variable for supervised evaluation
-        metrics : Optional[List[str]]
-            List of metrics to compute
+        y : pd.Series
+            Target variable
+        features : List[str]
+            List of features to evaluate
 
         Returns
         -------
-        Dict[str, Any]
-            Dictionary containing evaluation metrics
+        pd.DataFrame
+            DataFrame with features as rows and metrics as columns
         """
-        if metrics is None:
-            metrics = ["correlation", "mutual_information", "variance"]
 
-        results = {}
+        if self.problem_type == ProblemType.CLASSIFICATION:
+            self.results["mutual_information"] = self._compute_mutual_information(
+                X[features], y
+            )
+        elif self.problem_type == ProblemType.REGRESSION:
+            self.results["correlation"] = self._compute_correlation(X[features], y)
 
-        if "correlation" in metrics:
-            results["correlation"] = self._compute_correlations(X)
+        return self._format_results()
 
-        if "mutual_information" in metrics and y is not None:
-            results["mutual_information"] = self._compute_mutual_information(X, y)
+    def _format_results(self) -> pd.DataFrame:
+        """
+        Format the results into a pandas DataFrame.
 
-        if "variance" in metrics:
-            results["variance"] = self._compute_variance(X)
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with features as rows and metrics as columns
+        """
 
-        return results
+        if self.results is None:
+            raise ValueError("No results to format")
 
-    def _compute_correlations(self, X: pd.DataFrame) -> pd.DataFrame:
-        """Compute correlation matrix for features."""
-        return X.corr()
+        return pd.DataFrame(self.results).sort_values(
+            by=list(self.results.keys())[0], ascending=False
+        )
 
     def _compute_mutual_information(
-        self, X: pd.DataFrame, y: pd.Series
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
     ) -> Dict[str, float]:
         """Compute mutual information between features and target."""
-        if y.dtype == "object" or pd.api.types.is_categorical_dtype(y):
-            mi_scores = mutual_info_classif(X, y)
-        else:
-            mi_scores = mutual_info_regression(X, y)
-        return dict(zip(X.columns, mi_scores))
+        ## compute mutual information for each feature and target, be NaN robust
 
-    def _compute_variance(self, X: pd.DataFrame) -> Dict[str, float]:
-        """Compute variance of features."""
-        return X.var().to_dict()
+        X = X.copy()
+        mi_scores = []
+
+        categorical_cols = X.select_dtypes(include=["object", "category"]).columns
+
+        if len(categorical_cols) > 0:
+            encoder = OrdinalEncoder(
+                handle_unknown="use_encoded_value", unknown_value=-1
+            )
+            X[categorical_cols] = encoder.fit_transform(X[categorical_cols])
+
+        for col in X.columns:
+            xi = X[col]
+            valid_mask = ~xi.isna() & ~y.isna()
+            if valid_mask.sum() == 0:
+                mi_scores.append(np.nan)
+                continue
+
+            xi_valid = xi[valid_mask].values.reshape(-1, 1)
+            y_valid = y[valid_mask].values
+            discrete = pd.api.types.is_integer_dtype(xi) or col in categorical_cols
+
+            try:
+                mi = mutual_info_classif(xi_valid, y_valid, discrete_features=discrete)
+                mi_scores.append(mi[0])
+            except Exception as e:
+                print(f"Error computing mutual information for feature {col}: {e}")
+                mi_scores.append(np.nan)
+
+        return pd.Series(mi_scores, index=X.columns, name="mutual_information")
+
+    def _compute_correlation(
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+    ) -> pd.Series:
+        """Compute correlation between features and target."""
+        return X.corrwith(y)

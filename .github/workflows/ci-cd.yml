@@ -51,6 +51,7 @@ jobs:
   run-tests:
     name: Run Tests
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
 
     steps:
       - name: Checkout repository
@@ -127,7 +128,7 @@ jobs:
   publish:
     name: Publish to PyPI
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: create-tag
     environment:
       name: pypi
       url: https://pypi.org/p/skfeaturellm
@@ -137,6 +138,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -152,7 +155,7 @@ jobs:
 
       - name: Update version in pyproject.toml
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          VERSION=${GITHUB_REF#refs/tags/}
           poetry version ${VERSION#v}
 
       - name: Build package

@@ -139,7 +139,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0  # Required to get git history for version detection
 
       - name: Set up Python
         uses: actions/setup-python@v5

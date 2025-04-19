@@ -9,12 +9,6 @@ on:
   pull_request:
     branches:
       - '**'  # Run pre-commit and tests on PRs
-  workflow_run:
-    workflows: ["CI/CD for SKFeatureLLM"]
-    types:
-      - completed
-    branches:
-      - main
 
 jobs:
   pre-commit:

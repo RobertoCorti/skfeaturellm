@@ -17,11 +17,16 @@ SKFeatureLLM is a Python library that brings the power of Large Language Models 
 
 ## 📑 Table of Contents
 
-- [🌟 Key Features](#-key-features)
-- [🛠 Development](#-development)
-- [🤝 Contributing](#-contributing)
-- [📄 License](#-license)
-- [📚 Documentation](#-documentation)
+- [SKFeatureLLM](#skfeaturellm)
+  - [📑 Table of Contents](#-table-of-contents)
+  - [🌟 Key Features](#-key-features)
+  - [📦 Installation](#-installation)
+  - [📄 License](#-license)
+  - [🤝 Contributing](#-contributing)
+    - [Development Setup](#development-setup)
+    - [Code Style](#code-style)
+  - [👤 Author](#-author)
+  - [📚 Documentation](#-documentation)
 
 ## 🌟 Key Features
 
@@ -32,23 +37,14 @@ SKFeatureLLM is a Python library that brings the power of Large Language Models 
 - 🎯 Support for both supervised and unsupervised feature engineering
 
 
-## 🛠 Development
+## 📦 Installation
+To install the latest release of SKFeatureLLM from PyPI:
 
-1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/skfeaturellm.git
-cd skfeaturellm
+pip install skfeaturellm
 ```
 
-2. Install dependencies
-```bash
-poetry install
-```
-
-3. Activate the virtual environment
-```bash
-poetry env use python3 && poetry install && source $(poetry env info --path)/bin/activate
-```
+This will install the library and its core dependencies for end users.
 
 ### ✅ Running Tests
 

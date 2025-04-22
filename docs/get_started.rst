@@ -1,8 +1,27 @@
-Examples
-========
+Get Started
+===============
 
-This page contains practical examples of using ``skfeaturellm`` in different scenarios.
+The following information is designed to get users up and running with ``skfeaturellm`` quickly. For more detailed information, see the links in each of the subsections.
 
+Installation
+~~~~~~~~~~~~~~~~~
+``skfeaturellm`` currently supports:
+
+- environments with python version 3.10, 3.11, or 3.12.
+- operating systems Mac OS X, Unix-like OS, Windows 8.1 and higher
+- installation via `PyPI <https://pypi.org/project/skfeaturellm/>`_
+
+Please see the :doc:`installation` guide for step-by-step instructions on the package installation.
+
+
+Key Concepts
+~~~~~~~~~~~~~~~~~~~
+``skfeaturellm`` is a Python library that brings the power of Large Language Models (LLMs) to feature engineering for tabular data, wrapped in a familiar scikit-learn–style API. The library aims to leverage LLMs' capabilities to automatically generate and implement meaningful features for your machine learning tasks.
+
+
+Quickstart
+~~~~~~~~~~~~~~~~~~~
+The code snippets below are designed to introduce ``skfeaturellm``'s functionality so you can start using its functionality quickly.
 
 Classification
 --------------

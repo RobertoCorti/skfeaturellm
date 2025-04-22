@@ -7,6 +7,7 @@ skfeaturellm is a Python library that leverages Large Language Models (LLMs) for
    :maxdepth: 2
    :caption: Contents:
 
+   get_started
    installation
    user_guide
    api_reference

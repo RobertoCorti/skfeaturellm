@@ -4,8 +4,8 @@ import sys
 sys.path.insert(0, os.path.abspath(".."))
 
 project = "skfeaturellm"
-copyright = "2024, Roberto Corti, Stefeano Polo"
-author = "Roberto Corti, Stefeano Polo"
+copyright = "2025, Roberto Corti, Stefano Polo"
+author = "Roberto Corti, Stefano Polo"
 
 extensions = [
     "sphinx.ext.autodoc",

@@ -1,0 +1,2 @@
+class TransformerNotFoundError(Exception):
+    pass

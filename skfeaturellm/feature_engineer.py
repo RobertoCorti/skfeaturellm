@@ -114,7 +114,9 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
 
         for generated_feature_idea in self.generated_features_ideas:
             try:
-                X[generated_feature_idea.name] = X.eval(generated_feature_idea.formula)
+                X[f"{self.feature_prefix}{generated_feature_idea.name}"] = X.eval(
+                    generated_feature_idea.formula
+                )
             except Exception as e:
                 warnings.warn(
                     f"The formula {generated_feature_idea.formula} is not a valid formula. Skipping feature {generated_feature_idea.name}."
@@ -127,35 +129,6 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         ]
 
         return X
-
-    def _parse_feature_idea(
-        self, generated_feature_idea: Dict[str, Any]
-    ) -> Optional[Callable]:
-        """
-        Parse a feature idea into a formula.
-
-        Parameters
-        ----------
-        generated_feature_idea : Dict[str, Any]
-            A feature idea
-
-        Returns
-        -------
-        Optional[Callable]
-            The formula as a lambda function
-        """
-        try:
-            generated_feature_idea_formula_str = generated_feature_idea.formula
-            generated_feature_idea_formula = eval(generated_feature_idea_formula_str)
-
-            if not callable(generated_feature_idea_formula) or not isinstance(
-                generated_feature_idea_formula, type(lambda: None)
-            ):
-                raise TypeError("The evaluated result is not a lambda function.")
-
-            return generated_feature_idea_formula
-        except TypeError:
-            return None
 
     def fit_transform(
         self, X: pd.DataFrame, y: Optional[pd.Series] = None, **fit_params: Any

@@ -82,7 +82,7 @@ def test_fit_with_features(
     mock_generate.return_value = [
         FeatureEngineeringIdea(
             name="income_plus",
-            formula="lambda x: x['income'] + 1",
+            formula="income + 1",
             description="Income plus one",
         )
     ]
@@ -119,20 +119,20 @@ def test_transform_valid_feature(
     mock_generate.return_value = [
         FeatureEngineeringIdea(
             name="age_double",
-            formula="lambda x: x['age'] * 2",
+            formula="age * 2",
             description="Double the age",
         )
     ]
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
 
     engineer = LLMFeatureEngineer(
-        problem_type="classification", model_name="gpt-4o", model_provider="openai"
+        problem_type="classification", model_name="gpt-4o", feature_prefix="llm_feat_"
     )
     engineer.generated_features_ideas = mock_generate.return_value  # Simulate fit
     transformed_data = engineer.transform(sample_data_frame)
 
-    assert "age_double" in transformed_data.columns
-    assert transformed_data["age_double"].tolist() == [50, 60]
+    assert "llm_feat_age_double" in transformed_data.columns
+    assert transformed_data["llm_feat_age_double"].tolist() == [50, 60]
 
 
 def test_transform_invalid_feature(

@@ -34,7 +34,7 @@ Your response should be a always a dictionary with a key called 'ideas' that con
 - name: A clear, descriptive name
 - description: A detailed explanation of the feature
 - formula: The exact formula or transformation logic using column names from the dataset.
-          Should be a string with single quotes that shows the mathematical expression. It has to follow this syntax: 'A+B'. This expresion will be taken by Pandas' DataFrame.eval() method.
+          It has to follow this syntax: "A+B'" This expresion will be taken by Pandas' DataFrame.eval() method.
           Make sure to use the correct column names from the dataset in the expression. This is what is required in the expression from Pandas docs: The expression to evaluate. This string cannot contain any Python statements, only Python expressions.
           The following operations are supported:
         - Arithmetic operations: ``+``, ``-``, ``*``, ``/``, ``**``, ``%``

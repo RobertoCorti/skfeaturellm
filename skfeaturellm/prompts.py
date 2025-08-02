@@ -33,15 +33,29 @@ For each feature provide:
 Your response should be a always a dictionary with a key called 'ideas' that contains a list of features in JSON format, where each feature has:
 - name: A clear, descriptive name
 - description: A detailed explanation of the feature
-- formula: The exact formula or transformation logic using column names from the dataset. Should have a lambda function that encapsulates the transformation logic. Example: "lambda df: df['column_name'].div(df['other_column_name'])"
+- formula: The exact formula or transformation logic using column names from the dataset.
+          It has to follow this syntax: "A+B'" This expresion will be taken by Pandas' DataFrame.eval() method.
+          Make sure to use the correct column names from the dataset in the expression. This is what is required in the expression from Pandas docs: The expression to evaluate. This string cannot contain any Python statements, only Python expressions.
+          The following operations are supported:
+        - Arithmetic operations: ``+``, ``-``, ``*``, ``/``, ``**``, ``%``
+        - Boolean operations: ``|`` (or), ``&`` (and), and ``~`` (not)
+        - Comparison operators: ``<``, ``<=``, ``==``, ``!=``, ``>=``, ``>``
+        Furthermore, the following mathematical functions are supported:
+        - Trigonometric: ``sin``, ``cos``, ``tan``, ``arcsin``, ``arccos``, \
+            ``arctan``, ``arctan2``, ``sinh``, ``cosh``, ``tanh``, ``arcsinh``, \
+            ``arccosh`` and ``arctanh``
+        - Logarithms: ``log`` natural, ``log10`` base 10, ``log1p`` log(1+x)
+        - Absolute Value ``abs``
+        - Square root ``sqrt``
+        - Exponential ``exp`` and Exponential minus one ``expm1`
 
 Example:
 {{
     "ideas": [
         {{
-            "name": "credit_score_category",
-            "description": "A categorical feature representing the credit score category",
-            "formula": "lambda df: pd.cut(df['credit_score'], bins=[0, 600, 700, 800, 900, 1000], labels=['Low', 'Fair', 'Good', 'Very Good', 'Excellent'])"
+            "name": "debt_to_income_ratio",
+            "description": "A feature representing the ratio of debt to income",
+            "formula": 'debt/income'
         }}
     ]
 }}

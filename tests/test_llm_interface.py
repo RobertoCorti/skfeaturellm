@@ -88,7 +88,7 @@ def test_generate_features(
     mock_chain.invoke.return_value = [
         FeatureEngineeringIdea(
             name="age_squared",
-            formula="lambda x: x['age'] ** 2",
+            formula="age ** 2",
             description="Age squared",
         )
     ]

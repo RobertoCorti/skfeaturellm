@@ -112,15 +112,14 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         if not hasattr(self, "generated_features_ideas"):
             raise ValueError("fit must be called before transform")
 
-        # apply the transformations
         for generated_feature_idea in self.generated_features_ideas:
-
             try:
-                feature_idea_func = self._parse_feature_idea(generated_feature_idea)
-                X[generated_feature_idea.name] = feature_idea_func(X)
+                X[f"{self.feature_prefix}{generated_feature_idea.name}"] = X.eval(
+                    generated_feature_idea.formula
+                )
             except Exception as e:
                 warnings.warn(
-                    f"The formula {generated_feature_idea.formula} is not a valid lambda function. Skipping feature {generated_feature_idea.name}."
+                    f"The formula {generated_feature_idea.formula} is not a valid formula. Skipping feature {generated_feature_idea.name}."
                 )
 
         self.generated_features = [
@@ -130,35 +129,6 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         ]
 
         return X
-
-    def _parse_feature_idea(
-        self, generated_feature_idea: Dict[str, Any]
-    ) -> Optional[Callable]:
-        """
-        Parse a feature idea into a formula.
-
-        Parameters
-        ----------
-        generated_feature_idea : Dict[str, Any]
-            A feature idea
-
-        Returns
-        -------
-        Optional[Callable]
-            The formula as a lambda function
-        """
-        try:
-            generated_feature_idea_formula_str = generated_feature_idea.formula
-            generated_feature_idea_formula = eval(generated_feature_idea_formula_str)
-
-            if not callable(generated_feature_idea_formula) or not isinstance(
-                generated_feature_idea_formula, type(lambda: None)
-            ):
-                raise TypeError("The evaluated result is not a lambda function.")
-
-            return generated_feature_idea_formula
-        except TypeError:
-            return None
 
     def fit_transform(
         self, X: pd.DataFrame, y: Optional[pd.Series] = None, **fit_params: Any
@@ -225,3 +195,27 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
             Report containing feature statistics and insights
         """
         raise NotImplementedError("This feature is not yet implemented.")
+
+
+if __name__ == "__main__":
+
+    ## dataset of home prices
+    df = pd.DataFrame(
+        data={
+            "size": [1000, 1500, 2000, 2500, 3000],
+            "price": [100000, 150000, 200000, 250000, 300000],
+            "bedrooms": [3, 4, 5, 6, 7],
+            "bathrooms": [2, 2.5, 3, 3.5, 4],
+            "floors": [1, 1.5, 2, 2.5, 3],
+            "garage": [1, 2, 3, 4, 5],
+            "year_built": [2010, 2011, 2012, 2013, 2014],
+            "zip_code": ["10001", "10002", "10003", "10004", "10005"],
+        }
+    )
+
+    llm_feature_engineer = LLMFeatureEngineer(problem_type="regression")
+    llm_feature_engineer.fit(df, target_description="Price of the home")
+    print(llm_feature_engineer.generated_features_ideas)
+
+    df_fe = llm_feature_engineer.transform(df)
+    print(df_fe)

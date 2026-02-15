@@ -86,11 +86,6 @@ class FeatureEngineeringIdeas(BaseModel):
     )
 
 
-# =============================================================================
-# Feature Transformation DSL
-# =============================================================================
-
-# Supported arithmetic operations
 ArithmeticOperation = Literal["add", "sub", "mul", "div"]
 
 

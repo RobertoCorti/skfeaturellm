@@ -20,7 +20,6 @@ from skfeaturellm.transformations import (
     get_transformation_types_for_prompt,
 )
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -29,11 +28,13 @@ from skfeaturellm.transformations import (
 @pytest.fixture
 def sample_df():
     """Provide a sample DataFrame for testing."""
-    return pd.DataFrame({
-        "a": [10, 20, 30, 40],
-        "b": [2, 4, 5, 8],
-        "c": [1, 0, 3, 4],  # Contains zero for division tests
-    })
+    return pd.DataFrame(
+        {
+            "a": [10, 20, 30, 40],
+            "b": [2, 4, 5, 8],
+            "c": [1, 0, 3, 4],  # Contains zero for division tests
+        }
+    )
 
 
 @pytest.fixture
@@ -382,9 +383,7 @@ def test_from_dict_with_constant(sample_df):
 
 def test_from_json_valid(sample_config, sample_df):
     """Test loading from valid JSON file."""
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".json", delete=False
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         json.dump(sample_config, f)
         f.flush()
 
@@ -397,9 +396,7 @@ def test_from_json_valid(sample_config, sample_df):
 
 def test_from_json_path_object(sample_config, sample_df):
     """Test loading from Path object."""
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".json", delete=False
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         json.dump(sample_config, f)
         f.flush()
 
@@ -418,9 +415,7 @@ def test_from_yaml_valid(sample_config, sample_df):
     pytest.importorskip("yaml")
     import yaml
 
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".yaml", delete=False
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         yaml.dump(sample_config, f)
         f.flush()
 

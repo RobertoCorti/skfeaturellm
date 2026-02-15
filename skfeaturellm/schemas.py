@@ -193,6 +193,4 @@ class FeatureEngineeringIdeas(BaseModel):
         dict
             Dictionary with 'transformations' key containing list of transformation configs
         """
-        return {
-            "transformations": [idea.to_executor_dict() for idea in self.ideas]
-        }
+        return {"transformations": [idea.to_executor_dict() for idea in self.ideas]}

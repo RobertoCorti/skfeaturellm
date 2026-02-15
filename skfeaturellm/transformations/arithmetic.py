@@ -128,7 +128,9 @@ class SubTransformation(BinaryArithmeticTransformation):
 
     @classmethod
     def get_prompt_description(cls) -> str:
-        return "Subtraction (left_column - right_column, or left_column - right_constant)"
+        return (
+            "Subtraction (left_column - right_column, or left_column - right_constant)"
+        )
 
     def _apply_operation(
         self, left: pd.Series, right: Union[pd.Series, float]

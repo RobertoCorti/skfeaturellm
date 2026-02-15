@@ -284,7 +284,9 @@ class TransformationExecutor:
             If a transformation fails and raise_on_error is True
         """
         # Use provided transformations or fall back to instance transformations
-        transforms = transformations if transformations is not None else self.transformations
+        transforms = (
+            transformations if transformations is not None else self.transformations
+        )
 
         if not transforms:
             warnings.warn("No transformations to execute.")
@@ -323,7 +325,9 @@ class TransformationExecutor:
         Set[str]
             Set of required column names
         """
-        transforms = transformations if transformations is not None else self.transformations
+        transforms = (
+            transformations if transformations is not None else self.transformations
+        )
 
         required: Set[str] = set()
         for transformation in transforms:

@@ -39,10 +39,15 @@ class LLMInterface:
         self.llm = base_llm.with_structured_output(FeatureEngineeringIdeas)
 
         # Create prompt template with system and human messages
-        self.prompt_template = ChatPromptTemplate.from_messages([
-            ("system", FEATURE_ENGINEERING_PROMPT),
-            ("human", "Generate feature engineering ideas based on the dataset information provided."),
-        ])
+        self.prompt_template = ChatPromptTemplate.from_messages(
+            [
+                ("system", FEATURE_ENGINEERING_PROMPT),
+                (
+                    "human",
+                    "Generate feature engineering ideas based on the dataset information provided.",
+                ),
+            ]
+        )
 
         # Chain composition - no output parser needed with structured output
         self.chain = self.prompt_template | self.llm

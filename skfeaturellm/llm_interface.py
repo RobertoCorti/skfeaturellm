@@ -13,6 +13,7 @@ from skfeaturellm.schemas import (
     FeatureDescriptions,
     FeatureEngineeringIdeas,
 )
+from skfeaturellm.transformations import get_transformation_types_for_prompt
 from skfeaturellm.types import ProblemType
 
 
@@ -152,4 +153,5 @@ class LLMInterface:
             "problem_type": problem_type_message,
             "target_description": target_description_message,
             "additional_context": additional_context,
+            "transformation_types": get_transformation_types_for_prompt(),
         }

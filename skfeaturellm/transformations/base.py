@@ -28,7 +28,21 @@ class BaseTransformation(ABC):
     - execute(): Apply the transformation to a DataFrame
     - get_required_columns(): Return columns needed for the transformation
     - feature_name property: Name of the output feature
+    - get_prompt_description(): Return description for LLM prompts
     """
+
+    @classmethod
+    @abstractmethod
+    def get_prompt_description(cls) -> str:
+        """
+        Return a description of this transformation for use in LLM prompts.
+
+        Returns
+        -------
+        str
+            Human-readable description of what this transformation does
+        """
+        pass
 
     @property
     @abstractmethod

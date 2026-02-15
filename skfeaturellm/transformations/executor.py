@@ -43,6 +43,27 @@ def get_registered_transformations() -> Dict[str, Type[BaseTransformation]]:
     return _TRANSFORMATION_REGISTRY.copy()
 
 
+def get_transformation_types_for_prompt() -> str:
+    """
+    Generate documentation of available transformation types for LLM prompts.
+
+    This function dynamically generates the transformation types section
+    by querying the registry and calling get_prompt_description() on each
+    registered transformation class.
+
+    Returns
+    -------
+    str
+        Formatted documentation string listing all available transformations
+    """
+    lines = []
+    for name, cls in sorted(_TRANSFORMATION_REGISTRY.items()):
+        description = cls.get_prompt_description()
+        lines.append(f'- "{name}": {description}')
+
+    return "\n".join(lines)
+
+
 class TransformationExecutor:
     """
     Executes a set of transformations against a DataFrame.

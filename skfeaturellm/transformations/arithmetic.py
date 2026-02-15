@@ -105,6 +105,10 @@ class AddTransformation(BinaryArithmeticTransformation):
     >>> t = AddTransformation("plus_ten", "a", right_constant=10.0)
     """
 
+    @classmethod
+    def get_prompt_description(cls) -> str:
+        return "Addition (left_column + right_column, or left_column + right_constant)"
+
     def _apply_operation(
         self, left: pd.Series, right: Union[pd.Series, float]
     ) -> pd.Series:
@@ -122,6 +126,10 @@ class SubTransformation(BinaryArithmeticTransformation):
     >>> t = SubTransformation("minus_ten", "a", right_constant=10.0)
     """
 
+    @classmethod
+    def get_prompt_description(cls) -> str:
+        return "Subtraction (left_column - right_column, or left_column - right_constant)"
+
     def _apply_operation(
         self, left: pd.Series, right: Union[pd.Series, float]
     ) -> pd.Series:
@@ -138,6 +146,10 @@ class MulTransformation(BinaryArithmeticTransformation):
     >>> t = MulTransformation("product", "a", right_column="b")
     >>> t = MulTransformation("doubled", "a", right_constant=2.0)
     """
+
+    @classmethod
+    def get_prompt_description(cls) -> str:
+        return "Multiplication (left_column * right_column, or left_column * right_constant)"
 
     def _apply_operation(
         self, left: pd.Series, right: Union[pd.Series, float]
@@ -157,6 +169,10 @@ class DivTransformation(BinaryArithmeticTransformation):
     >>> t = DivTransformation("ratio", "a", right_column="b")
     >>> t = DivTransformation("halved", "a", right_constant=2.0)
     """
+
+    @classmethod
+    def get_prompt_description(cls) -> str:
+        return "Division (left_column / right_column, or left_column / right_constant)"
 
     def _apply_operation(
         self, left: pd.Series, right: Union[pd.Series, float]

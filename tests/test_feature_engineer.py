@@ -56,8 +56,10 @@ def test_fit_no_features(
     )
     mock_generate.return_value = [
         FeatureEngineeringIdea(
-            name="age_squared",
-            formula="lambda x: x['age'] ** 2",
+            type="mul",
+            feature_name="age_squared",
+            left_column="age",
+            right_column="age",
             description="Age squared",
         )
     ]
@@ -68,7 +70,7 @@ def test_fit_no_features(
     )
     engineer.generated_features_ideas = mock_generate.return_value  # Simulate fit
     assert len(engineer.generated_features_ideas) == 1
-    assert engineer.generated_features_ideas[0].name == "age_squared"
+    assert engineer.generated_features_ideas[0].feature_name == "age_squared"
     mock_generate.assert_not_called()  # Fit not called directly here
 
 
@@ -81,8 +83,10 @@ def test_fit_with_features(
     )
     mock_generate.return_value = [
         FeatureEngineeringIdea(
-            name="income_plus",
-            formula="income + 1",
+            type="add",
+            feature_name="income_plus",
+            left_column="income",
+            right_constant=1.0,
             description="Income plus one",
         )
     ]
@@ -93,7 +97,7 @@ def test_fit_with_features(
     )
     engineer.generated_features_ideas = mock_generate.return_value  # Simulate fit
     assert len(engineer.generated_features_ideas) == 1
-    assert engineer.generated_features_ideas[0].name == "income_plus"
+    assert engineer.generated_features_ideas[0].feature_name == "income_plus"
     mock_generate.assert_not_called()
 
 
@@ -112,14 +116,16 @@ def test_transform_without_fit(
 def test_transform_valid_feature(
     mocker, sample_data_frame
 ):  # pylint: disable=redefined-outer-name
-    """Test transform with a valid feature formula."""
+    """Test transform with a valid feature transformation."""
     mock_generate = mocker.patch(
         "skfeaturellm.llm_interface.LLMInterface.generate_engineered_features"
     )
     mock_generate.return_value = [
         FeatureEngineeringIdea(
-            name="age_double",
-            formula="age * 2",
+            type="mul",
+            feature_name="age_double",
+            left_column="age",
+            right_constant=2.0,
             description="Double the age",
         )
     ]
@@ -132,21 +138,23 @@ def test_transform_valid_feature(
     transformed_data = engineer.transform(sample_data_frame)
 
     assert "llm_feat_age_double" in transformed_data.columns
-    assert transformed_data["llm_feat_age_double"].tolist() == [50, 60]
+    assert transformed_data["llm_feat_age_double"].tolist() == [50.0, 60.0]
 
 
 def test_transform_invalid_feature(
     mocker, sample_data_frame
 ):  # pylint: disable=redefined-outer-name
-    """Test transform with an invalid feature formula."""
+    """Test transform with an invalid feature (missing column)."""
     mock_generate = mocker.patch(
         "skfeaturellm.llm_interface.LLMInterface.generate_engineered_features"
     )
     mock_generate.return_value = [
         FeatureEngineeringIdea(
-            name="invalid_feature",
-            formula="lambda x: x['unknown_column']",
-            description="Invalid formula",
+            type="add",
+            feature_name="invalid_feature",
+            left_column="unknown_column",
+            right_constant=1.0,
+            description="Invalid - column doesn't exist",
         )
     ]
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
@@ -155,10 +163,10 @@ def test_transform_invalid_feature(
         problem_type="classification", model_name="gpt-4o", model_provider="openai"
     )
     engineer.generated_features_ideas = mock_generate.return_value  # Simulate fit
-    # catch the warning with message "The formula lambda x: x['unknown_column'] is not a valid lambda function. Skipping feature invalid_feature."
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore",
-            message="The formula lambda x: x['unknown_column'] is not a valid lambda function. Skipping feature invalid_feature.",
-        )
-        engineer.transform(sample_data_frame)
+
+    # Transform should skip invalid features with a warning
+    with pytest.warns(UserWarning):
+        result = engineer.transform(sample_data_frame)
+
+    # Invalid feature should not be in the result
+    assert "llm_feat_invalid_feature" not in result.columns

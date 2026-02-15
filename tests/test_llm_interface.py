@@ -87,9 +87,11 @@ def test_generate_features(
     llm.chain = mock_chain
     mock_chain.invoke.return_value = [
         FeatureEngineeringIdea(
-            name="age_squared",
-            formula="age ** 2",
-            description="Age squared",
+            type="mul",
+            feature_name="age_squared",
+            left_column="age",
+            right_constant=2.0,
+            description="Double the age",
         )
     ]
 
@@ -98,4 +100,4 @@ def test_generate_features(
     )
     assert isinstance(result, list)
     assert len(result) == 1
-    assert result[0].name == "age_squared"
+    assert result[0].feature_name == "age_squared"

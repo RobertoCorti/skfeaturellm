@@ -5,8 +5,7 @@ Module for handling interactions with Language Models.
 from typing import Dict, List, Optional
 
 from langchain.chat_models import init_chat_model
-from langchain.output_parsers import PydanticOutputParser
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 
 from skfeaturellm.prompts import FEATURE_ENGINEERING_PROMPT
 from skfeaturellm.schemas import (
@@ -23,28 +22,29 @@ class LLMInterface:
 
     Parameters
     ----------
-    api_key : str
-        API key for the LLM provider
-    model_name : str, default="gpt-4"
+    model_name : str, default="gpt-4o"
         Name of the model to use
-    temperature : float, default=0.7
-        Temperature parameter for model sampling
-    max_tokens : Optional[int], default=None
-        Maximum number of tokens to generate
-    request_timeout : Optional[float], default=None
-        Timeout for API requests in seconds
+    **kwargs
+        Additional keyword arguments passed to init_chat_model
+        (e.g., temperature, max_tokens, api_key, etc.)
     """
 
     def __init__(self, model_name: str = "gpt-4o", **kwargs):
-        self.llm = init_chat_model(model=model_name, **kwargs)
-        self.output_parser = PydanticOutputParser(
-            pydantic_object=FeatureEngineeringIdeas
-        )
-        self.prompt_template = ChatPromptTemplate.from_template(
-            FEATURE_ENGINEERING_PROMPT
-        ).partial(format_instructions=self.output_parser.get_format_instructions())
+        # Initialize the base model
+        base_llm = init_chat_model(model=model_name, **kwargs)
 
-        self.chain = self.prompt_template | self.llm | self.output_parser
+        # Use with_structured_output for reliable structured responses
+        # This uses the provider's native structured output capabilities
+        self.llm = base_llm.with_structured_output(FeatureEngineeringIdeas)
+
+        # Create prompt template with system and human messages
+        self.prompt_template = ChatPromptTemplate.from_messages([
+            ("system", FEATURE_ENGINEERING_PROMPT),
+            ("human", "Generate feature engineering ideas based on the dataset information provided."),
+        ])
+
+        # Chain composition - no output parser needed with structured output
+        self.chain = self.prompt_template | self.llm
 
     def generate_engineered_features(
         self,

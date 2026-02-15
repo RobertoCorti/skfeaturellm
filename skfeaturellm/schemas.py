@@ -2,9 +2,9 @@
 Pydantic models for data validation and serialization.
 """
 
-from typing import List
+from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class FeatureDescription(BaseModel):
@@ -83,4 +83,93 @@ class FeatureEngineeringIdeas(BaseModel):
 
     ideas: List[FeatureEngineeringIdea] = Field(
         ..., description="List of feature engineering ideas"
+    )
+
+
+# =============================================================================
+# Feature Transformation DSL
+# =============================================================================
+
+# Supported arithmetic operations
+ArithmeticOperation = Literal["add", "sub", "mul", "div"]
+
+
+class FeatureTransformation(BaseModel):
+    """
+    A structured representation of a feature transformation.
+
+    This DSL schema replaces raw formula strings with a validated,
+    type-safe representation that can be statically analyzed and
+    safely executed.
+
+    Attributes:
+        feature_name: Name for the resulting feature
+        operation: The arithmetic operation to perform
+        inputs: List of column names to use as operands (1-2 columns)
+        constant: Optional constant value for operations with a scalar
+
+    Examples:
+        Division of two columns:
+        >>> FeatureTransformation(
+        ...     feature_name="income_per_person",
+        ...     operation="div",
+        ...     inputs=["total_income", "household_size"]
+        ... )
+
+        Multiply column by constant:
+        >>> FeatureTransformation(
+        ...     feature_name="income_doubled",
+        ...     operation="mul",
+        ...     inputs=["income"],
+        ...     constant=2.0
+        ... )
+    """
+
+    feature_name: str = Field(
+        ...,
+        description="Name for the resulting feature",
+        min_length=1,
+    )
+    operation: ArithmeticOperation = Field(
+        ...,
+        description="Arithmetic operation: 'add', 'sub', 'mul', or 'div'",
+    )
+    inputs: List[str] = Field(
+        ...,
+        description="Column names to use as operands (1-2 columns)",
+        min_length=1,
+        max_length=2,
+    )
+    constant: Optional[float] = Field(
+        default=None,
+        description="Optional constant value for operations with a scalar",
+    )
+
+    @model_validator(mode="after")
+    def validate_operands(self) -> "FeatureTransformation":
+        """Validate that we have exactly 2 operands (columns and/or constant)."""
+        num_operands = len(self.inputs) + (1 if self.constant is not None else 0)
+
+        if num_operands != 2:
+            raise ValueError(
+                f"Operation '{self.operation}' requires exactly 2 operands, "
+                f"got {len(self.inputs)} column(s) and "
+                f"{'1 constant' if self.constant is not None else 'no constant'}. "
+                f"Provide either 2 columns, or 1 column + 1 constant."
+            )
+
+        return self
+
+
+class FeatureTransformationSet(BaseModel):
+    """
+    A collection of feature transformations to apply.
+
+    Attributes:
+        transformations: List of feature transformations
+    """
+
+    transformations: List[FeatureTransformation] = Field(
+        ...,
+        description="List of feature transformations to apply",
     )

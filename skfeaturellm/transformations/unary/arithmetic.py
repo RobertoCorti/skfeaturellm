@@ -112,30 +112,6 @@ class Log1pTransformation(UnaryTransformation):
         return np.log1p(values)
 
 
-@register_transformation("sqrt")
-class SqrtTransformation(UnaryTransformation):
-    """
-    Square root transformation: sqrt(column).
-
-    Raises InvalidValueError if any values are < 0.
-
-    Examples
-    --------
-    >>> t = SqrtTransformation("sqrt_area", columns=["area"])
-    """
-
-    @classmethod
-    def get_prompt_description(cls) -> str:
-        return "Square root (sqrt(column)) - reduces right skew"
-
-    def _apply_operation(self, values: pd.Series) -> pd.Series:
-        if (values < 0).any():
-            raise InvalidValueError(
-                f"Sqrt transformation requires all values >= 0 in column '{self._column}'"
-            )
-        return np.sqrt(values)
-
-
 @register_transformation("abs")
 class AbsTransformation(UnaryTransformation):
     """
@@ -172,61 +148,48 @@ class ExpTransformation(UnaryTransformation):
         return np.exp(values)
 
 
-@register_transformation("square")
-class SquareTransformation(UnaryTransformation):
+@register_transformation("pow")
+class PowTransformation(UnaryTransformation):
     """
-    Square transformation: column ** 2.
+    Power transformation: column ** power.
+
+    Raises InvalidValueError for invalid operations (e.g., negative base with fractional exponent).
 
     Examples
     --------
-    >>> t = SquareTransformation("age_squared", columns=["age"])
+    >>> t = PowTransformation("age_squared", columns=["age"], parameters={"power": 2})
+    >>> t = PowTransformation("sqrt_area", columns=["area"], parameters={"power": 0.5})
+    >>> t = PowTransformation("inverse_distance", columns=["distance"], parameters={"power": -1})
     """
+
+    def __init__(
+        self,
+        feature_name: str,
+        columns: List[str],
+        parameters: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(feature_name, columns, parameters)
+        
+        if parameters is None or "power" not in parameters:
+            raise ValueError("PowTransformation requires 'power' in parameters")
+        
+        self._power = parameters["power"]
 
     @classmethod
     def get_prompt_description(cls) -> str:
-        return "Square (column ** 2) - captures non-linear relationships"
+        return "Power (column ** power) - flexible exponentiation for various transformations"
 
     def _apply_operation(self, values: pd.Series) -> pd.Series:
-        return values**2
-
-
-@register_transformation("cube")
-class CubeTransformation(UnaryTransformation):
-    """
-    Cube transformation: column ** 3.
-
-    Examples
-    --------
-    >>> t = CubeTransformation("size_cubed", columns=["size"])
-    """
-
-    @classmethod
-    def get_prompt_description(cls) -> str:
-        return "Cube (column ** 3) - captures stronger non-linear relationships"
-
-    def _apply_operation(self, values: pd.Series) -> pd.Series:
-        return values**3
-
-
-@register_transformation("reciprocal")
-class ReciprocalTransformation(UnaryTransformation):
-    """
-    Reciprocal transformation: 1 / column.
-
-    Raises InvalidValueError if any values are 0.
-
-    Examples
-    --------
-    >>> t = ReciprocalTransformation("inverse_distance", columns=["distance"])
-    """
-
-    @classmethod
-    def get_prompt_description(cls) -> str:
-        return "Reciprocal (1 / column) - inverse relationship"
-
-    def _apply_operation(self, values: pd.Series) -> pd.Series:
-        if (values == 0).any():
+        # Check for invalid operations
+        if self._power < 0 and (values == 0).any():
             raise InvalidValueError(
-                f"Reciprocal transformation requires all values != 0 in column '{self._column}'"
+                f"Power transformation with negative exponent requires all values != 0 in column '{self._column}'"
             )
-        return 1 / values
+        
+        # Check for fractional powers with negative values
+        if not isinstance(self._power, int) and (values < 0).any():
+            raise InvalidValueError(
+                f"Power transformation with fractional exponent requires all values >= 0 in column '{self._column}'"
+            )
+        
+        return values.astype(float).pow(self._power)

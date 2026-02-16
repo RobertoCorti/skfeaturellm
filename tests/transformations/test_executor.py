@@ -13,7 +13,7 @@ from skfeaturellm.transformations import (
     DivTransformation,
     LogTransformation,
     MulTransformation,
-    SqrtTransformation,
+    PowTransformation,
     TransformationExecutor,
     TransformationParseError,
     get_registered_transformations,
@@ -117,14 +117,14 @@ def test_executor_with_unary_transformation(sample_df):
     """Test executor with unary transformations."""
     transformations = [
         LogTransformation("log_positive", columns=["positive"]),
-        SqrtTransformation("sqrt_positive", columns=["positive"]),
+        PowTransformation("square_root_b", columns=["b"], parameters={"power": 0.5}),
     ]
     executor = TransformationExecutor(transformations=transformations)
 
     result = executor.execute(sample_df)
 
     assert "log_positive" in result.columns
-    assert "sqrt_positive" in result.columns
+    assert "square_root_b" in result.columns
 
 
 def test_executor_mixed_binary_and_unary(sample_df):
@@ -227,7 +227,7 @@ def test_from_dict_with_unary_transformation(sample_df):
     config = {
         "transformations": [
             {"type": "log", "feature_name": "log_positive", "columns": ["positive"]},
-            {"type": "sqrt", "feature_name": "sqrt_positive", "columns": ["positive"]},
+            {"type": "pow", "feature_name": "sqrt_positive", "columns": ["b"], "parameters": {"power": 0.5}},
         ]
     }
     executor = TransformationExecutor.from_dict(config)
@@ -307,15 +307,11 @@ def test_get_registered_transformations():
     # Unary operations
     assert "log" in registry
     assert "log1p" in registry
-    assert "sqrt" in registry
+    assert "pow" in registry
     assert "abs" in registry
     assert "exp" in registry
-    assert "square" in registry
-    assert "cube" in registry
-    assert "reciprocal" in registry
 
-    # Should have 12 total
-    assert len(registry) == 12
+    assert len(registry) == 9
 
 
 def test_get_transformation_types_for_prompt():
@@ -330,7 +326,7 @@ def test_get_transformation_types_for_prompt():
     assert '"div"' in prompt_doc
     # Unary operations
     assert '"log"' in prompt_doc
-    assert '"sqrt"' in prompt_doc
+    assert '"pow"' in prompt_doc
     assert '"abs"' in prompt_doc
     # Should contain descriptions
     assert "Addition" in prompt_doc or "+" in prompt_doc

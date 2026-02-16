@@ -34,14 +34,11 @@ from skfeaturellm.transformations.executor import (
 # Import unary transformations to trigger registration
 from skfeaturellm.transformations.unary import (
     AbsTransformation,
-    CubeTransformation,
     ExpTransformation,
     InvalidValueError,
     Log1pTransformation,
     LogTransformation,
-    ReciprocalTransformation,
-    SquareTransformation,
-    SqrtTransformation,
+    PowTransformation,
     UnaryTransformation,
 )
 
@@ -70,11 +67,8 @@ __all__ = [
     "UnaryTransformation",
     "LogTransformation",
     "Log1pTransformation",
-    "SqrtTransformation",
     "AbsTransformation",
     "ExpTransformation",
-    "SquareTransformation",
-    "CubeTransformation",
-    "ReciprocalTransformation",
+    "PowTransformation",
     "InvalidValueError",
 ]

@@ -153,10 +153,12 @@ class LLMInterface:
             f"Generate up to {max_features} features." if max_features else ""
         )
 
+        transformation_types = get_transformation_types_for_prompt()
+
         return {
             "feature_descriptions": feature_descriptions_schema.format(),
             "problem_type": problem_type_message,
             "target_description": target_description_message,
             "additional_context": additional_context,
-            "transformation_types": get_transformation_types_for_prompt(),
+            "transformation_types": transformation_types,
         }

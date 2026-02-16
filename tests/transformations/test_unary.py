@@ -5,14 +5,11 @@ import pytest
 
 from skfeaturellm.transformations import (
     AbsTransformation,
-    CubeTransformation,
     ExpTransformation,
     InvalidValueError,
     Log1pTransformation,
     LogTransformation,
-    ReciprocalTransformation,
-    SquareTransformation,
-    SqrtTransformation,
+    PowTransformation,
 )
 
 
@@ -78,13 +75,31 @@ def test_log1p_transformation_negative_values(sample_df):
 
 
 # =============================================================================
-# Test: SqrtTransformation
+# Test: PowTransformation
 # =============================================================================
 
 
-def test_sqrt_transformation(sample_df):
-    """Test sqrt transformation."""
-    t = SqrtTransformation("sqrt_positive", columns=["positive"])
+def test_pow_transformation_square(sample_df):
+    """Test power transformation with power=2 (square)."""
+    t = PowTransformation("squared", columns=["b"], parameters={"power": 2})
+    result = t.execute(sample_df)
+
+    assert result.name == "squared"
+    assert list(result) == [4, 16, 25, 64]
+
+
+def test_pow_transformation_cube(sample_df):
+    """Test power transformation with power=3 (cube)."""
+    t = PowTransformation("cubed", columns=["b"], parameters={"power": 3})
+    result = t.execute(sample_df)
+
+    assert result.name == "cubed"
+    assert list(result) == [8, 64, 125, 512]
+
+
+def test_pow_transformation_sqrt(sample_df):
+    """Test power transformation with power=0.5 (sqrt)."""
+    t = PowTransformation("sqrt_positive", columns=["positive"], parameters={"power": 0.5})
     result = t.execute(sample_df)
 
     assert result.name == "sqrt_positive"
@@ -92,9 +107,33 @@ def test_sqrt_transformation(sample_df):
     np.testing.assert_array_almost_equal(result, expected)
 
 
-def test_sqrt_transformation_negative_values(sample_df):
-    """Test that sqrt transformation raises error for negative values."""
-    t = SqrtTransformation("sqrt_negative", columns=["with_negative"])
+def test_pow_transformation_reciprocal(sample_df):
+    """Test power transformation with power=-1 (reciprocal)."""
+    t = PowTransformation("reciprocal_b", columns=["b"], parameters={"power": -1})
+    result = t.execute(sample_df)
+
+    assert result.name == "reciprocal_b"
+    expected = [0.5, 0.25, 0.2, 0.125]
+    np.testing.assert_array_almost_equal(result, expected)
+
+
+def test_pow_transformation_missing_power():
+    """Test that missing power parameter raises error."""
+    with pytest.raises(ValueError, match="requires 'power' in parameters"):
+        PowTransformation("test", columns=["a"])
+
+
+def test_pow_transformation_negative_power_with_zero(sample_df):
+    """Test that negative power with zero values raises error."""
+    t = PowTransformation("reciprocal_zero", columns=["with_zero"], parameters={"power": -1})
+
+    with pytest.raises(InvalidValueError, match="all values != 0"):
+        t.execute(sample_df)
+
+
+def test_pow_transformation_fractional_power_with_negative(sample_df):
+    """Test that fractional power with negative values raises error."""
+    t = PowTransformation("sqrt_negative", columns=["with_negative"], parameters={"power": 0.5})
 
     with pytest.raises(InvalidValueError, match="all values >= 0"):
         t.execute(sample_df)
@@ -127,57 +166,6 @@ def test_exp_transformation(sample_df):
     assert result.name == "exp_positive"
     expected = np.exp([1.0, 2.0, 3.0, 4.0])
     np.testing.assert_array_almost_equal(result, expected)
-
-
-# =============================================================================
-# Test: SquareTransformation
-# =============================================================================
-
-
-def test_square_transformation(sample_df):
-    """Test square transformation."""
-    t = SquareTransformation("squared", columns=["b"])
-    result = t.execute(sample_df)
-
-    assert result.name == "squared"
-    assert list(result) == [4, 16, 25, 64]
-
-
-# =============================================================================
-# Test: CubeTransformation
-# =============================================================================
-
-
-def test_cube_transformation(sample_df):
-    """Test cube transformation."""
-    t = CubeTransformation("cubed", columns=["b"])
-    result = t.execute(sample_df)
-
-    assert result.name == "cubed"
-    assert list(result) == [8, 64, 125, 512]
-
-
-# =============================================================================
-# Test: ReciprocalTransformation
-# =============================================================================
-
-
-def test_reciprocal_transformation(sample_df):
-    """Test reciprocal transformation."""
-    t = ReciprocalTransformation("reciprocal_b", columns=["b"])
-    result = t.execute(sample_df)
-
-    assert result.name == "reciprocal_b"
-    expected = [1 / 2, 1 / 4, 1 / 5, 1 / 8]
-    np.testing.assert_array_almost_equal(result, expected)
-
-
-def test_reciprocal_transformation_zero(sample_df):
-    """Test that reciprocal transformation raises error for zero values."""
-    t = ReciprocalTransformation("reciprocal_zero", columns=["with_zero"])
-
-    with pytest.raises(InvalidValueError, match="all values != 0"):
-        t.execute(sample_df)
 
 
 # =============================================================================

@@ -64,6 +64,58 @@ def get_transformation_types_for_prompt() -> str:
     return "\n".join(lines)
 
 
+def get_unary_operation_types() -> Set[str]:
+    """
+    Get the set of registered unary operation type names.
+
+    Returns
+    -------
+    Set[str]
+        Set of unary operation names (e.g., {"log", "sqrt", "abs"})
+    """
+    # Import here to avoid circular imports
+    from skfeaturellm.transformations.unary.arithmetic import UnaryTransformation
+
+    unary_ops = set()
+    for name, cls in _TRANSFORMATION_REGISTRY.items():
+        if issubclass(cls, UnaryTransformation):
+            unary_ops.add(name)
+    return unary_ops
+
+
+def get_binary_operation_types() -> Set[str]:
+    """
+    Get the set of registered binary operation type names.
+
+    Returns
+    -------
+    Set[str]
+        Set of binary operation names (e.g., {"add", "sub", "mul", "div"})
+    """
+    # Import here to avoid circular imports
+    from skfeaturellm.transformations.binary.arithmetic import (
+        BinaryArithmeticTransformation,
+    )
+
+    binary_ops = set()
+    for name, cls in _TRANSFORMATION_REGISTRY.items():
+        if issubclass(cls, BinaryArithmeticTransformation):
+            binary_ops.add(name)
+    return binary_ops
+
+
+def get_all_operation_types() -> Set[str]:
+    """
+    Get all registered operation type names.
+
+    Returns
+    -------
+    Set[str]
+        Set of all operation names
+    """
+    return set(_TRANSFORMATION_REGISTRY.keys())
+
+
 class TransformationExecutor:
     """
     Executes a set of transformations against a DataFrame.

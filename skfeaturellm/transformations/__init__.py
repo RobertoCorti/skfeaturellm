@@ -23,8 +23,11 @@ from skfeaturellm.transformations.binary import (
 from skfeaturellm.transformations.executor import (
     TransformationExecutor,
     TransformationParseError,
+    get_all_operation_types,
+    get_binary_operation_types,
     get_registered_transformations,
     get_transformation_types_for_prompt,
+    get_unary_operation_types,
     register_transformation,
 )
 
@@ -53,6 +56,9 @@ __all__ = [
     "register_transformation",
     "get_registered_transformations",
     "get_transformation_types_for_prompt",
+    "get_all_operation_types",
+    "get_unary_operation_types",
+    "get_binary_operation_types",
     # Binary
     "BinaryArithmeticTransformation",
     "AddTransformation",

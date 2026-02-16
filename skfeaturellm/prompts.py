@@ -37,16 +37,15 @@ All transformations require:
 - type: The transformation type (see above)
 - feature_name: A clear, descriptive name for the new feature
 - description: A detailed explanation of what the feature represents and why it's useful
+- columns: A list of column names required for the transformation
 
 For UNARY operations (log, sqrt, abs, etc.):
-- column: The name of the column to transform
+- columns: A list with exactly 1 column name
 
 For BINARY operations (add, sub, mul, div):
-- left_column: The name of the first column (left operand)
-- right_column: The name of the second column (for column-column operations) - OR -
-- right_constant: A numeric constant (for column-constant operations)
-
-NOTE: For binary operations, provide EITHER right_column OR right_constant, never both.
+- columns: A list with 1 or 2 column names
+  - For column-column operations: provide 2 column names
+  - For column-constant operations: provide 1 column name + parameters with "constant"
 
 ## Examples
 
@@ -55,7 +54,7 @@ Unary operation (log transformation):
     "type": "log",
     "feature_name": "log_income",
     "description": "Natural log of income to reduce right skewness and stabilize variance",
-    "column": "annual_income"
+    "columns": ["annual_income"]
 }}
 
 Binary column-column operation (ratio):
@@ -63,8 +62,7 @@ Binary column-column operation (ratio):
     "type": "div",
     "feature_name": "debt_to_income_ratio",
     "description": "Ratio of total debt to annual income, indicating financial leverage",
-    "left_column": "total_debt",
-    "right_column": "annual_income"
+    "columns": ["total_debt", "annual_income"]
 }}
 
 Binary column-constant operation (scaling):
@@ -72,8 +70,8 @@ Binary column-constant operation (scaling):
     "type": "mul",
     "feature_name": "monthly_income",
     "description": "Annual income converted to monthly by dividing by 12",
-    "left_column": "annual_income",
-    "right_constant": 0.0833
+    "columns": ["annual_income"],
+    "parameters": {{"constant": 0.0833}}
 }}
 
 Make sure to use the EXACT column names from the dataset provided above.

@@ -58,8 +58,7 @@ def test_fit_no_features(
         FeatureEngineeringIdea(
             type="mul",
             feature_name="age_squared",
-            left_column="age",
-            right_column="age",
+            columns=["age", "age"],
             description="Age squared",
         )
     ]
@@ -85,8 +84,8 @@ def test_fit_with_features(
         FeatureEngineeringIdea(
             type="add",
             feature_name="income_plus",
-            left_column="income",
-            right_constant=1.0,
+            columns=["income"],
+            parameters={"constant": 1.0},
             description="Income plus one",
         )
     ]
@@ -124,8 +123,8 @@ def test_transform_valid_feature(
         FeatureEngineeringIdea(
             type="mul",
             feature_name="age_double",
-            left_column="age",
-            right_constant=2.0,
+            columns=["age"],
+            parameters={"constant": 2.0},
             description="Double the age",
         )
     ]
@@ -152,8 +151,8 @@ def test_transform_invalid_feature(
         FeatureEngineeringIdea(
             type="add",
             feature_name="invalid_feature",
-            left_column="unknown_column",
-            right_constant=1.0,
+            columns=["unknown_column"],
+            parameters={"constant": 1.0},
             description="Invalid - column doesn't exist",
         )
     ]

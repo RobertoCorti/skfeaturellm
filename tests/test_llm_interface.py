@@ -89,8 +89,8 @@ def test_generate_features(
         FeatureEngineeringIdea(
             type="mul",
             feature_name="age_squared",
-            left_column="age",
-            right_constant=2.0,
+            columns=["age"],
+            parameters={"constant": 2.0},
             description="Double the age",
         )
     ]

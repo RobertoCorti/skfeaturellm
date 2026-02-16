@@ -50,7 +50,7 @@ To install from a specific branch, use the following command:
 Installing Full Developer Setup
 ~~~~~~~~~~~~~~~~~~~
 For whom:
-- contributors to the sktime project
+- contributors to the skfeaturellm project
 - developers of extensions in closed code bases
 - developers of 3rd party extensions released as open source
 

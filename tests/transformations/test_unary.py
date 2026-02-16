@@ -12,7 +12,6 @@ from skfeaturellm.transformations import (
     PowTransformation,
 )
 
-
 # =============================================================================
 # Test: LogTransformation
 # =============================================================================
@@ -99,7 +98,9 @@ def test_pow_transformation_cube(sample_df):
 
 def test_pow_transformation_sqrt(sample_df):
     """Test power transformation with power=0.5 (sqrt)."""
-    t = PowTransformation("sqrt_positive", columns=["positive"], parameters={"power": 0.5})
+    t = PowTransformation(
+        "sqrt_positive", columns=["positive"], parameters={"power": 0.5}
+    )
     result = t.execute(sample_df)
 
     assert result.name == "sqrt_positive"
@@ -125,7 +126,9 @@ def test_pow_transformation_missing_power():
 
 def test_pow_transformation_negative_power_with_zero(sample_df):
     """Test that negative power with zero values raises error."""
-    t = PowTransformation("reciprocal_zero", columns=["with_zero"], parameters={"power": -1})
+    t = PowTransformation(
+        "reciprocal_zero", columns=["with_zero"], parameters={"power": -1}
+    )
 
     with pytest.raises(InvalidValueError, match="all values != 0"):
         t.execute(sample_df)
@@ -133,7 +136,9 @@ def test_pow_transformation_negative_power_with_zero(sample_df):
 
 def test_pow_transformation_fractional_power_with_negative(sample_df):
     """Test that fractional power with negative values raises error."""
-    t = PowTransformation("sqrt_negative", columns=["with_negative"], parameters={"power": 0.5})
+    t = PowTransformation(
+        "sqrt_negative", columns=["with_negative"], parameters={"power": 0.5}
+    )
 
     with pytest.raises(InvalidValueError, match="all values >= 0"):
         t.execute(sample_df)

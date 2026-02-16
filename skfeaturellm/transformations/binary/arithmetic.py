@@ -13,6 +13,7 @@ from skfeaturellm.transformations.base import (
 )
 from skfeaturellm.transformations.executor import register_transformation
 
+
 class DivisionByZeroError(TransformationError):
     """Raised when a division by zero is detected."""
 

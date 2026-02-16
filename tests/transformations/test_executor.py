@@ -20,7 +20,6 @@ from skfeaturellm.transformations import (
     get_transformation_types_for_prompt,
 )
 
-
 # =============================================================================
 # Test: TransformationExecutor Basic Execution
 # =============================================================================
@@ -164,11 +163,7 @@ def test_from_dict_missing_transformations_key():
 
 def test_from_dict_missing_type():
     """Test that missing 'type' field raises error."""
-    config = {
-        "transformations": [
-            {"feature_name": "sum", "columns": ["a", "b"]}
-        ]
-    }
+    config = {"transformations": [{"feature_name": "sum", "columns": ["a", "b"]}]}
     with pytest.raises(TransformationParseError, match="type"):
         TransformationExecutor.from_dict(config)
 
@@ -227,7 +222,12 @@ def test_from_dict_with_unary_transformation(sample_df):
     config = {
         "transformations": [
             {"type": "log", "feature_name": "log_positive", "columns": ["positive"]},
-            {"type": "pow", "feature_name": "sqrt_positive", "columns": ["b"], "parameters": {"power": 0.5}},
+            {
+                "type": "pow",
+                "feature_name": "sqrt_positive",
+                "columns": ["b"],
+                "parameters": {"power": 0.5},
+            },
         ]
     }
     executor = TransformationExecutor.from_dict(config)

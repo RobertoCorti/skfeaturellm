@@ -38,8 +38,10 @@ class UnaryTransformation(BaseTransformation):
         parameters: Optional[Dict[str, Any]] = None,
     ):
         if len(columns) != 1:
-            raise ValueError(f"Unary operation requires exactly 1 column, got {len(columns)}")
-        
+            raise ValueError(
+                f"Unary operation requires exactly 1 column, got {len(columns)}"
+            )
+
         self._feature_name = feature_name
         self._column = columns[0]
         self._parameters = parameters or {}
@@ -169,10 +171,10 @@ class PowTransformation(UnaryTransformation):
         parameters: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(feature_name, columns, parameters)
-        
+
         if parameters is None or "power" not in parameters:
             raise ValueError("PowTransformation requires 'power' in parameters")
-        
+
         self._power = parameters["power"]
 
     @classmethod
@@ -185,11 +187,11 @@ class PowTransformation(UnaryTransformation):
             raise InvalidValueError(
                 f"Power transformation with negative exponent requires all values != 0 in column '{self._column}'"
             )
-        
+
         # Check for fractional powers with negative values
         if not isinstance(self._power, int) and (values < 0).any():
             raise InvalidValueError(
                 f"Power transformation with fractional exponent requires all values >= 0 in column '{self._column}'"
             )
-        
+
         return values.astype(float).pow(self._power)

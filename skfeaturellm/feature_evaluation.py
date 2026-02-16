@@ -54,7 +54,7 @@ class FeatureEvaluator:  # pylint: disable=too-few-public-methods
 
     def evaluate(
         self, X: pd.DataFrame, y: pd.Series, features: List[str]
-    ) -> pd.DataFrame:
+    ) -> FeatureEvaluationResult:
         """
         Evaluate features using various metrics.
 
@@ -69,41 +69,53 @@ class FeatureEvaluator:  # pylint: disable=too-few-public-methods
 
         Returns
         -------
-        pd.DataFrame
-            DataFrame with features as rows and metrics as columns
+        FeatureEvaluationResult
+            Result object containing the evaluation metrics
         """
+        X_subset = X[features]
 
-        if self.problem_type == ProblemType.CLASSIFICATION:
-            self.results["mutual_information"] = self._compute_mutual_information(
-                X[features], y
-            )
-        elif self.problem_type == ProblemType.REGRESSION:
-            self.results["correlation"] = self._compute_correlation(X[features], y)
+        # 1. Quality Metrics (Computationally cheap)
+        quality_metrics = pd.DataFrame(index=features)
+        quality_metrics["missing_pct"] = X_subset.isnull().mean()
+        quality_metrics["variance"] = X_subset.var()
+        # "Stability" check: is it effectively constant?
+        quality_metrics["is_constant"] = quality_metrics["variance"] == 0
 
-        return self._format_results()
+        # 2. Relevance Metrics (Problem-type dependent)
+        if self.problem_type == ProblemType.REGRESSION:
+            relevance = self._compute_regression_metrics(X_subset, y)
+        elif self.problem_type == ProblemType.CLASSIFICATION:
+            relevance = self._compute_classification_metrics(X_subset, y)
+        else:
+            relevance = pd.DataFrame(index=features)
 
-    def _format_results(self) -> pd.DataFrame:
-        """
-        Format the results into a pandas DataFrame.
+        # Combine everything
+        full_results = pd.concat([relevance, quality_metrics], axis=1)
 
-        Returns
-        -------
-        pd.DataFrame
-            DataFrame with features as rows and metrics as columns
-        """
+        return FeatureEvaluationResult(full_results)
 
-        if self.results is None:
-            raise ValueError("No results to format")
-
-        return pd.DataFrame(self.results).sort_values(
-            by=list(self.results.keys())[0], ascending=False
+    def _compute_regression_metrics(
+        self, X: pd.DataFrame, y: pd.Series
+    ) -> pd.DataFrame:
+        """Compute regression-specific metrics."""
+        return pd.DataFrame(
+            {
+                "spearman_corr": X.corrwith(y, method="spearman").abs(),
+                "pearson_corr": X.corrwith(y, method="pearson").abs(),
+            }
         )
+
+    def _compute_classification_metrics(
+        self, X: pd.DataFrame, y: pd.Series
+    ) -> pd.DataFrame:
+        """Compute classification-specific metrics."""
+        return pd.DataFrame({"mutual_info": self._compute_mutual_information(X, y)})
 
     def _compute_mutual_information(
         self,
         X: pd.DataFrame,
         y: pd.Series,
-    ) -> Dict[str, float]:
+    ) -> pd.Series:
         """Compute mutual information between features and target."""
         ## compute mutual information for each feature and target, be NaN robust
 
@@ -137,11 +149,3 @@ class FeatureEvaluator:  # pylint: disable=too-few-public-methods
                 mi_scores.append(np.nan)
 
         return pd.Series(mi_scores, index=X.columns, name="mutual_information")
-
-    def _compute_correlation(
-        self,
-        X: pd.DataFrame,
-        y: pd.Series,
-    ) -> pd.Series:
-        """Compute correlation between features and target."""
-        return X.corrwith(y)

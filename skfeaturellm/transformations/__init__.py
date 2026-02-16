@@ -5,8 +5,14 @@ This subpackage provides a structured, validated, and secure way to
 represent and execute feature transformations.
 """
 
-# Import arithmetic to trigger registration of transformation types
-from skfeaturellm.transformations.arithmetic import (
+from skfeaturellm.transformations.base import (
+    BaseTransformation,
+    ColumnNotFoundError,
+    TransformationError,
+)
+
+# Import binary transformations to trigger registration
+from skfeaturellm.transformations.binary import (
     AddTransformation,
     BinaryArithmeticTransformation,
     DivisionByZeroError,
@@ -14,17 +20,26 @@ from skfeaturellm.transformations.arithmetic import (
     MulTransformation,
     SubTransformation,
 )
-from skfeaturellm.transformations.base import (
-    BaseTransformation,
-    ColumnNotFoundError,
-    TransformationError,
-)
 from skfeaturellm.transformations.executor import (
     TransformationExecutor,
     TransformationParseError,
     get_registered_transformations,
     get_transformation_types_for_prompt,
     register_transformation,
+)
+
+# Import unary transformations to trigger registration
+from skfeaturellm.transformations.unary import (
+    AbsTransformation,
+    CubeTransformation,
+    ExpTransformation,
+    InvalidValueError,
+    Log1pTransformation,
+    LogTransformation,
+    ReciprocalTransformation,
+    SquareTransformation,
+    SqrtTransformation,
+    UnaryTransformation,
 )
 
 __all__ = [
@@ -38,11 +53,22 @@ __all__ = [
     "register_transformation",
     "get_registered_transformations",
     "get_transformation_types_for_prompt",
-    # Arithmetic
+    # Binary
     "BinaryArithmeticTransformation",
     "AddTransformation",
     "SubTransformation",
     "MulTransformation",
     "DivTransformation",
     "DivisionByZeroError",
+    # Unary
+    "UnaryTransformation",
+    "LogTransformation",
+    "Log1pTransformation",
+    "SqrtTransformation",
+    "AbsTransformation",
+    "ExpTransformation",
+    "SquareTransformation",
+    "CubeTransformation",
+    "ReciprocalTransformation",
+    "InvalidValueError",
 ]

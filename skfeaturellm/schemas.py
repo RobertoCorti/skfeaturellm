@@ -64,7 +64,20 @@ class FeatureDescriptions(BaseModel):
 # =============================================================================
 
 # Supported transformation types - must match registered transformations
-TransformationType = Literal["add", "sub", "mul", "div"]
+TransformationType = Literal[
+    "add",
+    "sub",
+    "mul",
+    "div",
+    "log",
+    "log1p",
+    "sqrt",
+    "abs",
+    "exp",
+    "square",
+    "cube",
+    "reciprocal",
+]
 
 
 class FeatureEngineeringIdea(BaseModel):
@@ -74,16 +87,28 @@ class FeatureEngineeringIdea(BaseModel):
     This schema is designed to map directly to the transformation executor,
     ensuring that LLM output can be reliably executed.
 
+    Supports both binary operations (add, sub, mul, div) and unary operations
+    (log, sqrt, abs, etc.).
+
     Attributes:
-        type: The transformation type (add, sub, mul, div)
+        type: The transformation type
         feature_name: Name for the resulting feature
         description: Explanation of what the feature represents and why it's useful
-        left_column: Name of the left operand column
-        right_column: Name of the right operand column (for column-column operations)
-        right_constant: Constant value for the right operand (for column-constant operations)
+        column: Name of the column to transform (for unary operations)
+        left_column: Name of the left operand column (for binary operations)
+        right_column: Name of the right operand column (for binary column-column operations)
+        right_constant: Constant value for the right operand (for binary column-constant operations)
 
     Examples:
-        Division of two columns:
+        Unary operation (log):
+        >>> FeatureEngineeringIdea(
+        ...     type="log",
+        ...     feature_name="log_income",
+        ...     description="Log of income to reduce skewness",
+        ...     column="income"
+        ... )
+
+        Binary operation (division of two columns):
         >>> FeatureEngineeringIdea(
         ...     type="div",
         ...     feature_name="income_per_person",
@@ -92,7 +117,7 @@ class FeatureEngineeringIdea(BaseModel):
         ...     right_column="household_size"
         ... )
 
-        Multiply column by constant:
+        Binary operation (multiply column by constant):
         >>> FeatureEngineeringIdea(
         ...     type="mul",
         ...     feature_name="income_doubled",
@@ -104,7 +129,7 @@ class FeatureEngineeringIdea(BaseModel):
 
     type: TransformationType = Field(
         ...,
-        description="Transformation type: 'add', 'sub', 'mul', or 'div'",
+        description="Transformation type",
     )
     feature_name: str = Field(
         ...,
@@ -115,38 +140,72 @@ class FeatureEngineeringIdea(BaseModel):
         ...,
         description="Explanation of what the feature represents and why it's useful",
     )
-    left_column: str = Field(
-        ...,
-        description="Name of the left operand column",
+    # For unary operations
+    column: Optional[str] = Field(
+        default=None,
+        description="Name of the column to transform (for unary operations like log, sqrt, abs)",
+    )
+    # For binary operations
+    left_column: Optional[str] = Field(
+        default=None,
+        description="Name of the left operand column (for binary operations)",
     )
     right_column: Optional[str] = Field(
         default=None,
-        description="Name of the right operand column (for column-column operations)",
+        description="Name of the right operand column (for binary column-column operations)",
     )
     right_constant: Optional[float] = Field(
         default=None,
-        description="Constant value for the right operand (for column-constant operations)",
+        description="Constant value for the right operand (for binary column-constant operations)",
     )
 
     @model_validator(mode="after")
     def validate_operands(self) -> "FeatureEngineeringIdea":
-        """Validate that exactly one of right_column or right_constant is provided."""
-        has_column = self.right_column is not None
-        has_constant = self.right_constant is not None
+        """Validate operands based on transformation type."""
+        # Unary operations
+        unary_ops = {"log", "log1p", "sqrt", "abs", "exp", "square", "cube", "reciprocal"}
+        # Binary operations
+        binary_ops = {"add", "sub", "mul", "div"}
 
-        if has_column and has_constant:
-            raise ValueError(
-                "Cannot provide both right_column and right_constant. "
-                "Use right_column for column-column operations, "
-                "or right_constant for column-constant operations."
-            )
+        if self.type in unary_ops:
+            # Unary operations require only 'column'
+            if self.column is None:
+                raise ValueError(
+                    f"Unary operation '{self.type}' requires 'column' field"
+                )
+            if self.left_column is not None or self.right_column is not None or self.right_constant is not None:
+                raise ValueError(
+                    f"Unary operation '{self.type}' should only have 'column' field, "
+                    "not 'left_column', 'right_column', or 'right_constant'"
+                )
 
-        if not has_column and not has_constant:
-            raise ValueError(
-                "Must provide either right_column or right_constant. "
-                "Use right_column for column-column operations, "
-                "or right_constant for column-constant operations."
-            )
+        elif self.type in binary_ops:
+            # Binary operations require left_column and either right_column or right_constant
+            if self.left_column is None:
+                raise ValueError(
+                    f"Binary operation '{self.type}' requires 'left_column' field"
+                )
+            if self.column is not None:
+                raise ValueError(
+                    f"Binary operation '{self.type}' should not have 'column' field"
+                )
+
+            has_right_column = self.right_column is not None
+            has_right_constant = self.right_constant is not None
+
+            if has_right_column and has_right_constant:
+                raise ValueError(
+                    "Cannot provide both right_column and right_constant. "
+                    "Use right_column for column-column operations, "
+                    "or right_constant for column-constant operations."
+                )
+
+            if not has_right_column and not has_right_constant:
+                raise ValueError(
+                    "Must provide either right_column or right_constant. "
+                    "Use right_column for column-column operations, "
+                    "or right_constant for column-constant operations."
+                )
 
         return self
 
@@ -157,18 +216,23 @@ class FeatureEngineeringIdea(BaseModel):
         Returns
         -------
         dict
-            Dictionary with 'type', 'feature_name', 'left_column', and
-            either 'right_column' or 'right_constant'
+            Dictionary with fields appropriate for the transformation type
         """
         result = {
             "type": self.type,
             "feature_name": self.feature_name,
-            "left_column": self.left_column,
         }
+
+        # Add fields based on what's present
+        if self.column is not None:
+            result["column"] = self.column
+        if self.left_column is not None:
+            result["left_column"] = self.left_column
         if self.right_column is not None:
             result["right_column"] = self.right_column
         if self.right_constant is not None:
             result["right_constant"] = self.right_constant
+
         return result
 
 

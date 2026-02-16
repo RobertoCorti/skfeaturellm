@@ -1,5 +1,5 @@
 """
-Arithmetic transformations for feature engineering.
+Binary arithmetic transformations for feature engineering.
 """
 
 from abc import abstractmethod

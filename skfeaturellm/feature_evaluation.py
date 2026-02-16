@@ -2,7 +2,7 @@
 Module for evaluating the quality of generated features.
 """
 
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -10,6 +10,36 @@ from sklearn.feature_selection import mutual_info_classif
 from sklearn.preprocessing import OrdinalEncoder
 
 from skfeaturellm.types import ProblemType
+
+
+class FeatureEvaluationResult:
+    """
+    Class for storing and presenting feature evaluation results.
+    """
+
+    def __init__(self, metrics_df: pd.DataFrame):
+        self._metrics_df = metrics_df
+
+    @property
+    def summary(self) -> pd.DataFrame:
+        """
+        Returns the metrics DataFrame sorted by importance.
+        """
+        # Sort by the first column (primary metric) in descending order
+        if self._metrics_df.empty:
+            return self._metrics_df
+        return self._metrics_df.sort_values(
+            by=self._metrics_df.columns[0], ascending=False
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert results to dictionary.
+        """
+        return self._metrics_df.to_dict()
+
+    def __repr__(self) -> str:
+        return self.summary.__repr__()
 
 
 class FeatureEvaluator:  # pylint: disable=too-few-public-methods

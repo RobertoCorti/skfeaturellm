@@ -67,8 +67,6 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         ----------
         X : pd.DataFrame
             Input features
-        y : Optional[pd.Series]
-            Target variable for supervised feature engineering
         feature_descriptions : Optional[List[Dict[str, Any]]]
             List of feature descriptions
         target_description : Optional[str]

@@ -19,7 +19,7 @@ from skfeaturellm.transformations import (
 
 def test_add_two_columns(sample_df):
     """Test addition of two columns."""
-    t = AddTransformation("sum", "a", right_column="b")
+    t = AddTransformation("sum", columns=["a", "b"])
     result = t.execute(sample_df)
 
     assert result.name == "sum"
@@ -28,7 +28,7 @@ def test_add_two_columns(sample_df):
 
 def test_add_column_and_constant(sample_df):
     """Test addition of column and constant."""
-    t = AddTransformation("plus_five", "a", right_constant=5.0)
+    t = AddTransformation("plus_five", columns=["a"], parameters={"constant": 5.0})
     result = t.execute(sample_df)
 
     assert result.name == "plus_five"
@@ -37,10 +37,10 @@ def test_add_column_and_constant(sample_df):
 
 def test_add_get_required_columns():
     """Test get_required_columns returns correct columns."""
-    t1 = AddTransformation("sum", "a", right_column="b")
+    t1 = AddTransformation("sum", columns=["a", "b"])
     assert t1.get_required_columns() == {"a", "b"}
 
-    t2 = AddTransformation("plus_five", "a", right_constant=5.0)
+    t2 = AddTransformation("plus_five", columns=["a"], parameters={"constant": 5.0})
     assert t2.get_required_columns() == {"a"}
 
 
@@ -58,7 +58,7 @@ def test_add_get_prompt_description():
 
 def test_sub_two_columns(sample_df):
     """Test subtraction of two columns."""
-    t = SubTransformation("diff", "a", right_column="b")
+    t = SubTransformation("diff", columns=["a", "b"])
     result = t.execute(sample_df)
 
     assert result.name == "diff"
@@ -67,7 +67,7 @@ def test_sub_two_columns(sample_df):
 
 def test_sub_column_and_constant(sample_df):
     """Test subtraction of constant from column."""
-    t = SubTransformation("minus_five", "a", right_constant=5.0)
+    t = SubTransformation("minus_five", columns=["a"], parameters={"constant": 5.0})
     result = t.execute(sample_df)
 
     assert result.name == "minus_five"
@@ -81,7 +81,7 @@ def test_sub_column_and_constant(sample_df):
 
 def test_mul_two_columns(sample_df):
     """Test multiplication of two columns."""
-    t = MulTransformation("product", "a", right_column="b")
+    t = MulTransformation("product", columns=["a", "b"])
     result = t.execute(sample_df)
 
     assert result.name == "product"
@@ -90,7 +90,7 @@ def test_mul_two_columns(sample_df):
 
 def test_mul_column_and_constant(sample_df):
     """Test multiplication of column by constant."""
-    t = MulTransformation("doubled", "a", right_constant=2.0)
+    t = MulTransformation("doubled", columns=["a"], parameters={"constant": 2.0})
     result = t.execute(sample_df)
 
     assert result.name == "doubled"
@@ -104,7 +104,7 @@ def test_mul_column_and_constant(sample_df):
 
 def test_div_two_columns(sample_df):
     """Test division of two columns."""
-    t = DivTransformation("ratio", "a", right_column="b")
+    t = DivTransformation("ratio", columns=["a", "b"])
     result = t.execute(sample_df)
 
     assert result.name == "ratio"
@@ -113,7 +113,7 @@ def test_div_two_columns(sample_df):
 
 def test_div_column_and_constant(sample_df):
     """Test division of column by constant."""
-    t = DivTransformation("halved", "a", right_constant=2.0)
+    t = DivTransformation("halved", columns=["a"], parameters={"constant": 2.0})
     result = t.execute(sample_df)
 
     assert result.name == "halved"
@@ -122,7 +122,7 @@ def test_div_column_and_constant(sample_df):
 
 def test_div_by_zero_column(sample_df):
     """Test division by zero raises error."""
-    t = DivTransformation("ratio", "a", right_column="c")
+    t = DivTransformation("ratio", columns=["a", "c"])
 
     with pytest.raises(DivisionByZeroError):
         t.execute(sample_df)
@@ -130,7 +130,7 @@ def test_div_by_zero_column(sample_df):
 
 def test_div_by_zero_constant(sample_df):
     """Test division by zero constant raises error."""
-    t = DivTransformation("ratio", "a", right_constant=0.0)
+    t = DivTransformation("ratio", columns=["a"], parameters={"constant": 0.0})
 
     with pytest.raises(DivisionByZeroError):
         t.execute(sample_df)
@@ -143,19 +143,19 @@ def test_div_by_zero_constant(sample_df):
 
 def test_binary_missing_right_operand():
     """Test that missing right operand raises error."""
-    with pytest.raises(ValueError, match="Must provide either"):
-        AddTransformation("sum", "a")
+    with pytest.raises(ValueError, match="requires 'constant' in parameters"):
+        AddTransformation("sum", columns=["a"])
 
 
 def test_binary_both_right_operands():
     """Test that providing both right operands raises error."""
-    with pytest.raises(ValueError, match="Cannot provide both"):
-        AddTransformation("sum", "a", right_column="b", right_constant=5.0)
+    with pytest.raises(ValueError, match="should not have 'constant' in parameters"):
+        AddTransformation("sum", columns=["a", "b"], parameters={"constant": 5.0})
 
 
 def test_binary_missing_column(sample_df):
     """Test that missing column raises ColumnNotFoundError."""
-    t = AddTransformation("sum", "a", right_column="nonexistent")
+    t = AddTransformation("sum", columns=["a", "nonexistent"])
 
     with pytest.raises(ColumnNotFoundError):
         t.execute(sample_df)

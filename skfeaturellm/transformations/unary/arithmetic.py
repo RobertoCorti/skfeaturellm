@@ -2,7 +2,7 @@
 Unary arithmetic transformations for feature engineering.
 """
 
-from typing import Set
+from typing import Any, Dict, List, Optional, Set
 
 import numpy as np
 import pandas as pd
@@ -25,13 +25,24 @@ class UnaryTransformation(BaseTransformation):
     ----------
     feature_name : str
         Name for the resulting feature
-    column : str
-        Name of the column to transform
+    columns : List[str]
+        List with exactly one column name
+    parameters : Optional[Dict[str, Any]]
+        Optional parameters (not used for basic unary operations)
     """
 
-    def __init__(self, feature_name: str, column: str):
+    def __init__(
+        self,
+        feature_name: str,
+        columns: List[str],
+        parameters: Optional[Dict[str, Any]] = None,
+    ):
+        if len(columns) != 1:
+            raise ValueError(f"Unary operation requires exactly 1 column, got {len(columns)}")
+        
         self._feature_name = feature_name
-        self._column = column
+        self._column = columns[0]
+        self._parameters = parameters or {}
 
     @property
     def feature_name(self) -> str:
@@ -62,7 +73,7 @@ class LogTransformation(UnaryTransformation):
 
     Examples
     --------
-    >>> t = LogTransformation("log_income", "income")
+    >>> t = LogTransformation("log_income", columns=["income"])
     """
 
     @classmethod
@@ -86,7 +97,7 @@ class Log1pTransformation(UnaryTransformation):
 
     Examples
     --------
-    >>> t = Log1pTransformation("log1p_count", "count")
+    >>> t = Log1pTransformation("log1p_count", columns=["count"])
     """
 
     @classmethod
@@ -110,7 +121,7 @@ class SqrtTransformation(UnaryTransformation):
 
     Examples
     --------
-    >>> t = SqrtTransformation("sqrt_area", "area")
+    >>> t = SqrtTransformation("sqrt_area", columns=["area"])
     """
 
     @classmethod
@@ -132,7 +143,7 @@ class AbsTransformation(UnaryTransformation):
 
     Examples
     --------
-    >>> t = AbsTransformation("abs_diff", "difference")
+    >>> t = AbsTransformation("abs_diff", columns=["difference"])
     """
 
     @classmethod
@@ -150,7 +161,7 @@ class ExpTransformation(UnaryTransformation):
 
     Examples
     --------
-    >>> t = ExpTransformation("exp_log_price", "log_price")
+    >>> t = ExpTransformation("exp_log_price", columns=["log_price"])
     """
 
     @classmethod
@@ -168,7 +179,7 @@ class SquareTransformation(UnaryTransformation):
 
     Examples
     --------
-    >>> t = SquareTransformation("age_squared", "age")
+    >>> t = SquareTransformation("age_squared", columns=["age"])
     """
 
     @classmethod
@@ -186,7 +197,7 @@ class CubeTransformation(UnaryTransformation):
 
     Examples
     --------
-    >>> t = CubeTransformation("size_cubed", "size")
+    >>> t = CubeTransformation("size_cubed", columns=["size"])
     """
 
     @classmethod
@@ -206,7 +217,7 @@ class ReciprocalTransformation(UnaryTransformation):
 
     Examples
     --------
-    >>> t = ReciprocalTransformation("inverse_distance", "distance")
+    >>> t = ReciprocalTransformation("inverse_distance", columns=["distance"])
     """
 
     @classmethod

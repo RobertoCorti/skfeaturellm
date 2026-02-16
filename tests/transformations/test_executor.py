@@ -28,7 +28,7 @@ from skfeaturellm.transformations import (
 
 def test_executor_single_transformation(sample_df):
     """Test executing a single transformation."""
-    t = AddTransformation("sum", "a", right_column="b")
+    t = AddTransformation("sum", columns=["a", "b"])
     executor = TransformationExecutor(transformations=[t])
 
     result = executor.execute(sample_df)
@@ -42,8 +42,8 @@ def test_executor_single_transformation(sample_df):
 def test_executor_multiple_transformations(sample_df):
     """Test executing multiple transformations."""
     transformations = [
-        AddTransformation("sum", "a", right_column="b"),
-        MulTransformation("product", "a", right_column="b"),
+        AddTransformation("sum", columns=["a", "b"]),
+        MulTransformation("product", columns=["a", "b"]),
     ]
     executor = TransformationExecutor(transformations=transformations)
 
@@ -58,8 +58,8 @@ def test_executor_multiple_transformations(sample_df):
 def test_executor_raise_on_error_false(sample_df):
     """Test that failed transformations are skipped when raise_on_error=False."""
     transformations = [
-        AddTransformation("sum", "a", right_column="b"),
-        DivTransformation("bad_ratio", "a", right_column="c"),
+        AddTransformation("sum", columns=["a", "b"]),
+        DivTransformation("bad_ratio", columns=["a", "c"]),
     ]
     executor = TransformationExecutor(
         transformations=transformations, raise_on_error=False
@@ -75,7 +75,7 @@ def test_executor_raise_on_error_false(sample_df):
 def test_executor_raise_on_error_true(sample_df):
     """Test that failed transformations raise when raise_on_error=True."""
     transformations = [
-        DivTransformation("bad_ratio", "a", right_column="c"),
+        DivTransformation("bad_ratio", columns=["a", "c"]),
     ]
     executor = TransformationExecutor(
         transformations=transformations, raise_on_error=True
@@ -88,8 +88,8 @@ def test_executor_raise_on_error_true(sample_df):
 def test_executor_get_required_columns():
     """Test get_required_columns aggregates all columns."""
     transformations = [
-        AddTransformation("sum", "a", right_column="b"),
-        MulTransformation("scaled", "c", right_constant=2.0),
+        AddTransformation("sum", columns=["a", "b"]),
+        MulTransformation("scaled", columns=["c"], parameters={"constant": 2.0}),
     ]
     executor = TransformationExecutor(transformations=transformations)
 
@@ -116,8 +116,8 @@ def test_executor_empty_transformations(sample_df):
 def test_executor_with_unary_transformation(sample_df):
     """Test executor with unary transformations."""
     transformations = [
-        LogTransformation("log_positive", "positive"),
-        SqrtTransformation("sqrt_positive", "positive"),
+        LogTransformation("log_positive", columns=["positive"]),
+        SqrtTransformation("sqrt_positive", columns=["positive"]),
     ]
     executor = TransformationExecutor(transformations=transformations)
 
@@ -130,8 +130,8 @@ def test_executor_with_unary_transformation(sample_df):
 def test_executor_mixed_binary_and_unary(sample_df):
     """Test executor with both binary and unary transformations."""
     transformations = [
-        AddTransformation("sum", "a", right_column="b"),
-        LogTransformation("log_positive", "positive"),
+        AddTransformation("sum", columns=["a", "b"]),
+        LogTransformation("log_positive", columns=["positive"]),
     ]
     executor = TransformationExecutor(transformations=transformations)
 
@@ -166,7 +166,7 @@ def test_from_dict_missing_type():
     """Test that missing 'type' field raises error."""
     config = {
         "transformations": [
-            {"feature_name": "sum", "left_column": "a", "right_column": "b"}
+            {"feature_name": "sum", "columns": ["a", "b"]}
         ]
     }
     with pytest.raises(TransformationParseError, match="type"):
@@ -180,8 +180,7 @@ def test_from_dict_unknown_type():
             {
                 "type": "unknown_op",
                 "feature_name": "test",
-                "left_column": "a",
-                "right_column": "b",
+                "columns": ["a", "b"],
             }
         ]
     }
@@ -196,11 +195,11 @@ def test_from_dict_invalid_arguments():
             {
                 "type": "add",
                 "feature_name": "sum",
-                "right_column": "b",
+                "columns": [],  # Empty columns list - invalid
             }
         ]
     }
-    with pytest.raises(TransformationParseError, match="Invalid arguments"):
+    with pytest.raises(TransformationParseError, match="requires 1 or 2 columns"):
         TransformationExecutor.from_dict(config)
 
 
@@ -211,8 +210,8 @@ def test_from_dict_with_constant(sample_df):
             {
                 "type": "mul",
                 "feature_name": "doubled",
-                "left_column": "a",
-                "right_constant": 2.0,
+                "columns": ["a"],
+                "parameters": {"constant": 2.0},
             }
         ]
     }
@@ -227,8 +226,8 @@ def test_from_dict_with_unary_transformation(sample_df):
     """Test loading unary transformation from dict."""
     config = {
         "transformations": [
-            {"type": "log", "feature_name": "log_positive", "column": "positive"},
-            {"type": "sqrt", "feature_name": "sqrt_positive", "column": "positive"},
+            {"type": "log", "feature_name": "log_positive", "columns": ["positive"]},
+            {"type": "sqrt", "feature_name": "sqrt_positive", "columns": ["positive"]},
         ]
     }
     executor = TransformationExecutor.from_dict(config)

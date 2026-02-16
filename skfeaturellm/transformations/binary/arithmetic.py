@@ -3,7 +3,7 @@ Binary arithmetic transformations for feature engineering.
 """
 
 from abc import abstractmethod
-from typing import Optional, Set, Union
+from typing import Any, Dict, List, Optional, Set, Union
 
 import pandas as pd
 
@@ -12,7 +12,6 @@ from skfeaturellm.transformations.base import (
     TransformationError,
 )
 from skfeaturellm.transformations.executor import register_transformation
-
 
 class DivisionByZeroError(TransformationError):
     """Raised when a division by zero is detected."""
@@ -30,30 +29,42 @@ class BinaryArithmeticTransformation(BaseTransformation):
     ----------
     feature_name : str
         Name for the resulting feature
-    left_column : str
-        Name of the left operand column
-    right_column : str, optional
-        Name of the right operand column (mutually exclusive with right_constant)
-    right_constant : float, optional
-        Constant value for the right operand (mutually exclusive with right_column)
+    columns : List[str]
+        List of column names (1 or 2 columns)
+    parameters : Optional[Dict[str, Any]]
+        Optional parameters dict with 'constant' key for column-constant operations
     """
 
     def __init__(
         self,
         feature_name: str,
-        left_column: str,
-        right_column: Optional[str] = None,
-        right_constant: Optional[float] = None,
+        columns: List[str],
+        parameters: Optional[Dict[str, Any]] = None,
     ):
-        if right_column is None and right_constant is None:
-            raise ValueError("Must provide either right_column or right_constant")
-        if right_column is not None and right_constant is not None:
-            raise ValueError("Cannot provide both right_column and right_constant")
+        if len(columns) == 1:
+            # Column-constant operation: must have constant in parameters
+            if parameters is None or "constant" not in parameters:
+                raise ValueError(
+                    "Binary operation with 1 column requires 'constant' in parameters"
+                )
+            self._left_column = columns[0]
+            self._right_column = None
+            self._right_constant = parameters["constant"]
+        elif len(columns) == 2:
+            # Column-column operation
+            if parameters is not None and "constant" in parameters:
+                raise ValueError(
+                    "Binary operation with 2 columns should not have 'constant' in parameters"
+                )
+            self._left_column = columns[0]
+            self._right_column = columns[1]
+            self._right_constant = None
+        else:
+            raise ValueError(
+                f"Binary operation requires 1 or 2 columns, got {len(columns)}"
+            )
 
         self._feature_name = feature_name
-        self._left_column = left_column
-        self._right_column = right_column
-        self._right_constant = right_constant
 
     @property
     def feature_name(self) -> str:
@@ -101,13 +112,13 @@ class AddTransformation(BinaryArithmeticTransformation):
 
     Examples
     --------
-    >>> t = AddTransformation("total", "a", right_column="b")
-    >>> t = AddTransformation("plus_ten", "a", right_constant=10.0)
+    >>> t = AddTransformation("total", columns=["a", "b"])
+    >>> t = AddTransformation("plus_ten", columns=["a"], parameters={"constant": 10.0})
     """
 
     @classmethod
     def get_prompt_description(cls) -> str:
-        return "Addition (left_column + right_column, or left_column + right_constant)"
+        return "Addition of two columns or a column and a constant"
 
     def _apply_operation(
         self, left: pd.Series, right: Union[pd.Series, float]
@@ -122,15 +133,13 @@ class SubTransformation(BinaryArithmeticTransformation):
 
     Examples
     --------
-    >>> t = SubTransformation("difference", "a", right_column="b")
-    >>> t = SubTransformation("minus_ten", "a", right_constant=10.0)
+    >>> t = SubTransformation("difference", columns=["a", "b"])
+    >>> t = SubTransformation("minus_ten", columns=["a"], parameters={"constant": 10.0})
     """
 
     @classmethod
     def get_prompt_description(cls) -> str:
-        return (
-            "Subtraction (left_column - right_column, or left_column - right_constant)"
-        )
+        return "Subtraction of two columns or a column and a constant"
 
     def _apply_operation(
         self, left: pd.Series, right: Union[pd.Series, float]
@@ -145,13 +154,13 @@ class MulTransformation(BinaryArithmeticTransformation):
 
     Examples
     --------
-    >>> t = MulTransformation("product", "a", right_column="b")
-    >>> t = MulTransformation("doubled", "a", right_constant=2.0)
+    >>> t = MulTransformation("product", columns=["a", "b"])
+    >>> t = MulTransformation("doubled", columns=["a"], parameters={"constant": 2.0})
     """
 
     @classmethod
     def get_prompt_description(cls) -> str:
-        return "Multiplication (left_column * right_column, or left_column * right_constant)"
+        return "Multiplication of two columns or a column and a constant"
 
     def _apply_operation(
         self, left: pd.Series, right: Union[pd.Series, float]
@@ -168,13 +177,13 @@ class DivTransformation(BinaryArithmeticTransformation):
 
     Examples
     --------
-    >>> t = DivTransformation("ratio", "a", right_column="b")
-    >>> t = DivTransformation("halved", "a", right_constant=2.0)
+    >>> t = DivTransformation("ratio", columns=["a", "b"])
+    >>> t = DivTransformation("halved", columns=["a"], parameters={"constant": 2.0})
     """
 
     @classmethod
     def get_prompt_description(cls) -> str:
-        return "Division (left_column / right_column, or left_column / right_constant)"
+        return "Division of two columns or a column and a constant"
 
     def _apply_operation(
         self, left: pd.Series, right: Union[pd.Series, float]

@@ -308,6 +308,8 @@ class TransformationExecutor:
             raise TransformationParseError(
                 f"Invalid arguments for transformation '{t_type}' at index {index}: {e}"
             )
+        except ValueError as e:
+            raise TransformationParseError(e)
 
     def execute(
         self,

@@ -27,14 +27,12 @@ def sample_config():
             {
                 "type": "add",
                 "feature_name": "sum_ab",
-                "left_column": "a",
-                "right_column": "b",
+                "columns": ["a", "b"],
             },
             {
                 "type": "div",
                 "feature_name": "ratio_ab",
-                "left_column": "a",
-                "right_column": "b",
+                "columns": ["a", "b"],
             },
         ]
     }

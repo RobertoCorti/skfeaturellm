@@ -6,7 +6,11 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-from skfeaturellm.transformations import get_all_operation_types, get_unary_operation_types, get_binary_operation_types
+from skfeaturellm.transformations import (
+    get_all_operation_types,
+    get_binary_operation_types,
+    get_unary_operation_types,
+)
 
 
 class FeatureDescription(BaseModel):
@@ -180,38 +184,19 @@ class FeatureEngineeringIdea(BaseModel):
         """
         Convert to a dictionary format compatible with TransformationExecutor.
 
-        Maps the generic columns/parameters format to the specific fields
-        expected by transformation classes (column, left_column, right_column, right_constant).
-
         Returns
         -------
         dict
-            Dictionary with fields appropriate for the transformation type
+            Dictionary with type, feature_name, columns, and optional parameters
         """
-
         result = {
             "type": self.type,
             "feature_name": self.feature_name,
+            "columns": self.columns,
         }
 
-        # Get operation types dynamically from registry
-        unary_ops = get_unary_operation_types()
-        binary_ops = get_binary_operation_types()
-
-        # Unary operations: map columns[0] to 'column'
-        if self.type in unary_ops:
-            result["column"] = self.columns[0]
-        
-        # Binary operations: map to left_column, right_column, or right_constant
-        elif self.type in binary_ops:
-            result["left_column"] = self.columns[0]
-            
-            if len(self.columns) == 2:
-                # Column-column operation
-                result["right_column"] = self.columns[1]
-            elif self.parameters and "constant" in self.parameters:
-                # Column-constant operation
-                result["right_constant"] = self.parameters["constant"]
+        if self.parameters is not None:
+            result["parameters"] = self.parameters
 
         return result
 

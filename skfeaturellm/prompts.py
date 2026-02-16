@@ -39,7 +39,7 @@ All transformations require:
 - description: A detailed explanation of what the feature represents and why it's useful
 - columns: A list of column names required for the transformation
 
-For UNARY operations (log, sqrt, abs, etc.):
+For UNARY operations (log, log1p, abs, exp, pow):
 - columns: A list with exactly 1 column name
 
 For BINARY operations (add, sub, mul, div):

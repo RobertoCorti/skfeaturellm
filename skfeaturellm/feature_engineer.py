@@ -3,7 +3,7 @@ Main module for LLM-powered feature engineering.
 """
 
 import warnings
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -11,6 +11,8 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from skfeaturellm.feature_evaluation import FeatureEvaluator
 from skfeaturellm.llm_interface import LLMInterface
 from skfeaturellm.reporting import FeatureReport
+from skfeaturellm.schemas import FeatureEngineeringIdeas
+from skfeaturellm.transformations import TransformationExecutor
 from skfeaturellm.types import ProblemType
 
 
@@ -112,23 +114,56 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         if not hasattr(self, "generated_features_ideas"):
             raise ValueError("fit must be called before transform")
 
-        for generated_feature_idea in self.generated_features_ideas:
-            try:
-                X[f"{self.feature_prefix}{generated_feature_idea.name}"] = X.eval(
-                    generated_feature_idea.formula
-                )
-            except Exception as e:
-                warnings.warn(
-                    f"The formula {generated_feature_idea.formula} is not a valid formula. Skipping feature {generated_feature_idea.name}."
-                )
+        # Convert LLM output to executor config and apply prefix to feature names
+        executor_config = self._build_executor_config(self.generated_features_ideas)
 
+        # Create executor with raise_on_error=False to skip failed transformations
+        executor = TransformationExecutor.from_dict(
+            executor_config, raise_on_error=False
+        )
+
+        # Execute transformations
+        result_df = executor.execute(X)
+
+        # Track which features were successfully created
+        expected_feature_names = [
+            f"{self.feature_prefix}{idea.feature_name}"
+            for idea in self.generated_features_ideas
+        ]
         self.generated_features = [
-            generated_feature_idea
-            for generated_feature_idea in self.generated_features_ideas
-            if generated_feature_idea.name in X.columns
+            idea
+            for idea, expected_name in zip(
+                self.generated_features_ideas, expected_feature_names
+            )
+            if expected_name in result_df.columns
         ]
 
-        return X
+        return result_df
+
+    def _build_executor_config(
+        self, ideas: List[Any]
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Build executor configuration from LLM-generated ideas with feature prefix.
+
+        Parameters
+        ----------
+        ideas : List[FeatureEngineeringIdea]
+            List of feature engineering ideas from LLM
+
+        Returns
+        -------
+        Dict
+            Configuration dict for TransformationExecutor.from_dict()
+        """
+        transformations = []
+        for idea in ideas:
+            config = idea.to_executor_dict()
+            # Apply feature prefix
+            config["feature_name"] = f"{self.feature_prefix}{config['feature_name']}"
+            transformations.append(config)
+
+        return {"transformations": transformations}
 
     def fit_transform(
         self, X: pd.DataFrame, y: Optional[pd.Series] = None, **fit_params: Any
@@ -177,7 +212,9 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         if not hasattr(self, "generated_features"):
             raise ValueError("fit must be called before evaluate_features")
 
-        generated_features_names = [idea.name for idea in self.generated_features]
+        generated_features_names = [
+            idea.feature_name for idea in self.generated_features
+        ]
 
         X_transformed = self.transform(X) if is_transformed else X
 

@@ -25,38 +25,54 @@ Generate feature engineering ideas that:
 3. Capture meaningful patterns and relationships
 4. Are computationally feasible
 
-For each feature provide:
-1. A descriptive name that reflects the feature's purpose
-2. A clear explanation of what the feature represents and why it's useful
-3. A precise formula or logic to create the feature (using Pandas syntax)
+IMPORTANT: You must use the structured transformation format described below.
 
-Your response should be a always a dictionary with a key called 'ideas' that contains a list of features in JSON format, where each feature has:
-- name: A clear, descriptive name
-- description: A detailed explanation of the feature
-- formula: The exact formula or transformation logic using column names from the dataset.
-          It has to follow this syntax: "A+B'" This expresion will be taken by Pandas' DataFrame.eval() method.
-          Make sure to use the correct column names from the dataset in the expression. This is what is required in the expression from Pandas docs: The expression to evaluate. This string cannot contain any Python statements, only Python expressions.
-          The following operations are supported:
-        - Arithmetic operations: ``+``, ``-``, ``*``, ``/``, ``**``, ``%``
-        - Boolean operations: ``|`` (or), ``&`` (and), and ``~`` (not)
-        - Comparison operators: ``<``, ``<=``, ``==``, ``!=``, ``>=``, ``>``
-        Furthermore, the following mathematical functions are supported:
-        - Trigonometric: ``sin``, ``cos``, ``tan``, ``arcsin``, ``arccos``, \
-            ``arctan``, ``arctan2``, ``sinh``, ``cosh``, ``tanh``, ``arcsinh``, \
-            ``arccosh`` and ``arctanh``
-        - Logarithms: ``log`` natural, ``log10`` base 10, ``log1p`` log(1+x)
-        - Absolute Value ``abs``
-        - Square root ``sqrt``
-        - Exponential ``exp`` and Exponential minus one ``expm1`
+## Supported Transformation Types
 
-Example:
+{transformation_types}
+
+## Required Fields for Each Feature
+
+All transformations require:
+- type: The transformation type (see above)
+- feature_name: A clear, descriptive name for the new feature
+- description: A detailed explanation of what the feature represents and why it's useful
+- columns: A list of column names required for the transformation
+
+For UNARY operations (log, log1p, abs, exp, pow):
+- columns: A list with exactly 1 column name
+
+For BINARY operations (add, sub, mul, div):
+- columns: A list with 1 or 2 column names
+  - For column-column operations: provide 2 column names
+  - For column-constant operations: provide 1 column name + parameters with "constant"
+
+## Examples
+
+Unary operation (log transformation):
 {{
-    "ideas": [
-        {{
-            "name": "debt_to_income_ratio",
-            "description": "A feature representing the ratio of debt to income",
-            "formula": 'debt/income'
-        }}
-    ]
+    "type": "log",
+    "feature_name": "log_income",
+    "description": "Natural log of income to reduce right skewness and stabilize variance",
+    "columns": ["annual_income"]
 }}
+
+Binary column-column operation (ratio):
+{{
+    "type": "div",
+    "feature_name": "debt_to_income_ratio",
+    "description": "Ratio of total debt to annual income, indicating financial leverage",
+    "columns": ["total_debt", "annual_income"]
+}}
+
+Binary column-constant operation (scaling):
+{{
+    "type": "mul",
+    "feature_name": "monthly_income",
+    "description": "Annual income converted to monthly by dividing by 12",
+    "columns": ["annual_income"],
+    "parameters": {{"constant": 0.0833}}
+}}
+
+Make sure to use the EXACT column names from the dataset provided above.
 """

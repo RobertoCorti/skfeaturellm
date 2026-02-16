@@ -2,44 +2,16 @@
 Module for evaluating the quality of generated features.
 """
 
-from typing import Any, Dict, List
+import warnings
+from typing import List
 
 import numpy as np
 import pandas as pd
-from sklearn.feature_selection import mutual_info_classif
+from sklearn.feature_selection import mutual_info_classif, mutual_info_regression
 from sklearn.preprocessing import OrdinalEncoder
 
+from skfeaturellm.feature_evaluation.result import FeatureEvaluationResult
 from skfeaturellm.types import ProblemType
-
-
-class FeatureEvaluationResult:
-    """
-    Class for storing and presenting feature evaluation results.
-    """
-
-    def __init__(self, metrics_df: pd.DataFrame):
-        self._metrics_df = metrics_df
-
-    @property
-    def summary(self) -> pd.DataFrame:
-        """
-        Returns the metrics DataFrame sorted by importance.
-        """
-        # Sort by the first column (primary metric) in descending order
-        if self._metrics_df.empty:
-            return self._metrics_df
-        return self._metrics_df.sort_values(
-            by=self._metrics_df.columns[0], ascending=False
-        )
-
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Convert results to dictionary.
-        """
-        return self._metrics_df.to_dict()
-
-    def __repr__(self) -> str:
-        return self.summary.__repr__()
 
 
 class FeatureEvaluator:  # pylint: disable=too-few-public-methods
@@ -50,7 +22,6 @@ class FeatureEvaluator:  # pylint: disable=too-few-public-methods
         problem_type: ProblemType,
     ):
         self.problem_type = problem_type
-        self.results = {}
 
     def evaluate(
         self, X: pd.DataFrame, y: pd.Series, features: List[str]
@@ -92,7 +63,7 @@ class FeatureEvaluator:  # pylint: disable=too-few-public-methods
         # Combine everything
         full_results = pd.concat([relevance, quality_metrics], axis=1)
 
-        return FeatureEvaluationResult(full_results)
+        return FeatureEvaluationResult(full_results, primary_metric="mutual_info")
 
     def _compute_regression_metrics(
         self, X: pd.DataFrame, y: pd.Series
@@ -100,6 +71,9 @@ class FeatureEvaluator:  # pylint: disable=too-few-public-methods
         """Compute regression-specific metrics."""
         return pd.DataFrame(
             {
+                "mutual_info": self._compute_mutual_information(
+                    X, y, mi_func=mutual_info_regression
+                ),
                 "spearman_corr": X.corrwith(y, method="spearman").abs(),
                 "pearson_corr": X.corrwith(y, method="pearson").abs(),
             }
@@ -109,16 +83,31 @@ class FeatureEvaluator:  # pylint: disable=too-few-public-methods
         self, X: pd.DataFrame, y: pd.Series
     ) -> pd.DataFrame:
         """Compute classification-specific metrics."""
-        return pd.DataFrame({"mutual_info": self._compute_mutual_information(X, y)})
+        return pd.DataFrame(
+            {
+                "mutual_info": self._compute_mutual_information(
+                    X, y, mi_func=mutual_info_classif
+                ),
+            }
+        )
 
     def _compute_mutual_information(
         self,
         X: pd.DataFrame,
         y: pd.Series,
+        mi_func: callable = mutual_info_classif,
     ) -> pd.Series:
-        """Compute mutual information between features and target."""
-        ## compute mutual information for each feature and target, be NaN robust
+        """Compute mutual information between features and target.
 
+        Parameters
+        ----------
+        X : pd.DataFrame
+            Input features
+        y : pd.Series
+            Target variable
+        mi_func : callable
+            Mutual information function (mutual_info_classif or mutual_info_regression)
+        """
         X = X.copy()
         mi_scores = []
 
@@ -142,10 +131,13 @@ class FeatureEvaluator:  # pylint: disable=too-few-public-methods
             discrete = pd.api.types.is_integer_dtype(xi) or col in categorical_cols
 
             try:
-                mi = mutual_info_classif(xi_valid, y_valid, discrete_features=discrete)
+                mi = mi_func(xi_valid, y_valid, discrete_features=discrete)
                 mi_scores.append(mi[0])
-            except Exception as e:
-                print(f"Error computing mutual information for feature {col}: {e}")
+            except ValueError as e:
+                warnings.warn(
+                    f"Error computing mutual information for feature {col}: {e}",
+                    stacklevel=2,
+                )
                 mi_scores.append(np.nan)
 
         return pd.Series(mi_scores, index=X.columns, name="mutual_information")

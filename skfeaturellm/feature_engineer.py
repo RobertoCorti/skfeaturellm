@@ -11,7 +11,6 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from skfeaturellm.feature_evaluation import FeatureEvaluationResult, FeatureEvaluator
 from skfeaturellm.llm_interface import LLMInterface
 from skfeaturellm.reporting import FeatureReport
-from skfeaturellm.schemas import FeatureEngineeringIdeas
 from skfeaturellm.transformations import TransformationExecutor
 from skfeaturellm.types import ProblemType
 
@@ -207,7 +206,7 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
             Result object containing the evaluation metrics
         """
 
-        if not hasattr(self, "generated_features"):
+        if not hasattr(self, "generated_features_ideas"):
             raise ValueError("fit must be called before evaluate_features")
 
         generated_features_names = [

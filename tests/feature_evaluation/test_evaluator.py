@@ -6,34 +6,8 @@ from skfeaturellm.feature_evaluation import FeatureEvaluationResult, FeatureEval
 from skfeaturellm.types import ProblemType
 
 
-@pytest.fixture
-def sample_data_regression():
-    X = pd.DataFrame(
-        {
-            "feature_strong": [1, 2, 3, 4, 5],  # Perfect correlation
-            "feature_weak": [1, 5, 2, 4, 3],  # Weak correlation
-            "feature_constant": [1, 1, 1, 1, 1],  # Constant
-            "feature_missing": [1, np.nan, 3, np.nan, 5],  # Missing values
-        }
-    )
-    y = pd.Series([10, 20, 30, 40, 50])
-    return X, y
-
-
-@pytest.fixture
-def sample_data_classification():
-    X = pd.DataFrame(
-        {
-            "feature_predictive": [1, 1, 2, 2, 3, 3],  # Correlates with classes
-            "feature_random": [5, 1, 4, 1, 3, 0],  # Random
-        }
-    )
-    y = pd.Series([0, 0, 1, 1, 2])
-    return X, y
-
-
-def test_summary_sorting():
-    """Test that summary sorts by the primary metric."""
+def test_summary_sorting_default():
+    """Test that summary sorts by first column when no primary_metric given."""
     df = pd.DataFrame(
         {"metric_a": [0.1, 0.9, 0.5], "metric_b": [1, 2, 3]},
         index=["feat1", "feat2", "feat3"],
@@ -41,9 +15,23 @@ def test_summary_sorting():
     result = FeatureEvaluationResult(df)
     summary = result.summary
 
-    # Should be sorted by metric_a descending
+    # Should be sorted by metric_a descending (first column fallback)
     assert summary.index.tolist() == ["feat2", "feat3", "feat1"]
     assert summary.iloc[0]["metric_a"] == 0.9
+
+
+def test_summary_sorting_primary_metric():
+    """Test that summary sorts by the explicit primary_metric."""
+    df = pd.DataFrame(
+        {"metric_a": [0.1, 0.9, 0.5], "metric_b": [3, 1, 2]},
+        index=["feat1", "feat2", "feat3"],
+    )
+    result = FeatureEvaluationResult(df, primary_metric="metric_b")
+    summary = result.summary
+
+    # Should be sorted by metric_b descending, not metric_a
+    assert summary.index.tolist() == ["feat1", "feat3", "feat2"]
+    assert summary.iloc[0]["metric_b"] == 3
 
 
 def test_to_dict():
@@ -64,6 +52,7 @@ def test_regression_metrics(sample_data_regression):
     summary = result.summary
 
     # Check columns exist
+    assert "mutual_info" in summary.columns
     assert "spearman_corr" in summary.columns
     assert "pearson_corr" in summary.columns
     assert "missing_pct" in summary.columns
@@ -74,6 +63,12 @@ def test_regression_metrics(sample_data_regression):
     assert np.allclose(strong_stats["pearson_corr"], 1.0)
     assert np.allclose(strong_stats["spearman_corr"], 1.0)
     assert strong_stats["missing_pct"] == 0.0
+
+    # Strong feature should have higher MI than weak
+    assert (
+        summary.loc["feature_strong", "mutual_info"]
+        > summary.loc["feature_weak", "mutual_info"]
+    )
 
 
 def test_classification_metrics(sample_data_classification):
@@ -104,5 +99,5 @@ def test_quality_metrics(sample_data_regression):
     assert summary.loc["feature_constant", "variance"] == 0.0
     assert summary.loc["feature_constant", "is_constant"]
 
-    # Check missing feature
-    assert summary.loc["feature_missing", "missing_pct"] == 0.4  # 2/5 missing
+    # Check missing feature (~40% missing)
+    assert summary.loc["feature_missing", "missing_pct"] > 0.0

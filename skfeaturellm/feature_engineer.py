@@ -8,10 +8,8 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 
-from skfeaturellm.feature_evaluation import FeatureEvaluator
+from skfeaturellm.feature_evaluation import FeatureEvaluationResult, FeatureEvaluator
 from skfeaturellm.llm_interface import LLMInterface
-from skfeaturellm.reporting import FeatureReport
-from skfeaturellm.schemas import FeatureEngineeringIdeas
 from skfeaturellm.transformations import TransformationExecutor
 from skfeaturellm.types import ProblemType
 
@@ -67,8 +65,6 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         ----------
         X : pd.DataFrame
             Input features
-        y : Optional[pd.Series]
-            Target variable for supervised feature engineering
         feature_descriptions : Optional[List[Dict[str, Any]]]
             List of feature descriptions
         target_description : Optional[str]
@@ -190,7 +186,7 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         X: pd.DataFrame,
         y: pd.Series,
         is_transformed: bool = False,
-    ) -> pd.DataFrame:
+    ) -> FeatureEvaluationResult:
         """
         Evaluate the quality of generated features.
 
@@ -205,33 +201,23 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
 
         Returns
         -------
-        pd.DataFrame
-            DataFrame with features as rows and metrics as columns
+        FeatureEvaluationResult
+            Result object containing the evaluation metrics
         """
 
-        if not hasattr(self, "generated_features"):
+        if not hasattr(self, "generated_features_ideas"):
             raise ValueError("fit must be called before evaluate_features")
 
         generated_features_names = [
-            idea.feature_name for idea in self.generated_features
+            f"{self.feature_prefix}{idea.feature_name}"
+            for idea in self.generated_features
         ]
 
-        X_transformed = self.transform(X) if is_transformed else X
+        X_transformed = self.transform(X) if not is_transformed else X
 
         return self.feature_evaluator.evaluate(
             X_transformed, y, features=generated_features_names
         )
-
-    def generate_report(self) -> FeatureReport:
-        """
-        Generate a comprehensive report about the engineered features.
-
-        Returns
-        -------
-        FeatureReport
-            Report containing feature statistics and insights
-        """
-        raise NotImplementedError("This feature is not yet implemented.")
 
 
 if __name__ == "__main__":

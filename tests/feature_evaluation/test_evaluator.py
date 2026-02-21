@@ -1,6 +1,10 @@
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+
+matplotlib.use("Agg")
 
 from skfeaturellm.feature_evaluation import FeatureEvaluationResult, FeatureEvaluator
 from skfeaturellm.types import ProblemType
@@ -101,3 +105,43 @@ def test_quality_metrics(sample_data_regression):
 
     # Check missing feature (~40% missing)
     assert summary.loc["feature_missing", "missing_pct"] > 0.0
+
+
+def test_evaluate_result_carries_context(sample_data_regression):
+    """evaluate() passes X, y, problem_type to the result for later use."""
+    X, y = sample_data_regression
+    evaluator = FeatureEvaluator(problem_type=ProblemType.REGRESSION)
+    features = ["feature_strong", "feature_weak"]
+
+    result = evaluator.evaluate(X, y, features)
+
+    assert result._X is not None
+    assert result._y is not None
+    assert result._problem_type == ProblemType.REGRESSION
+    assert list(result._X.columns) == features
+
+
+def test_plot_distributions_returns_one_figure_per_feature(sample_data_regression):
+    X, y = sample_data_regression
+    evaluator = FeatureEvaluator(problem_type=ProblemType.REGRESSION)
+    features = ["feature_strong", "feature_weak"]
+
+    figs = evaluator.plot_distributions(X, y, features)
+
+    assert set(figs.keys()) == set(features)
+    for fig in figs.values():
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+
+def test_plot_distributions_classification(sample_data_classification):
+    X, y = sample_data_classification
+    evaluator = FeatureEvaluator(problem_type=ProblemType.CLASSIFICATION)
+    features = ["feature_predictive", "feature_random"]
+
+    figs = evaluator.plot_distributions(X, y, features)
+
+    assert set(figs.keys()) == set(features)
+    for fig in figs.values():
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)

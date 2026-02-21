@@ -2,16 +2,18 @@
 Module for evaluating the quality of generated features.
 """
 
-from typing import List
+from typing import Dict, List
 
 import pandas as pd
+from matplotlib.figure import Figure
 
 from skfeaturellm.feature_evaluation import metrics
 from skfeaturellm.feature_evaluation.result import FeatureEvaluationResult
+from skfeaturellm.feature_evaluation.visualizations import plot_feature_vs_target
 from skfeaturellm.types import ProblemType
 
 
-class FeatureEvaluator:  # pylint: disable=too-few-public-methods
+class FeatureEvaluator:
     """Class for evaluating the quality of generated features."""
 
     def __init__(
@@ -51,7 +53,37 @@ class FeatureEvaluator:  # pylint: disable=too-few-public-methods
         # 3. Combine everything
         full_results = pd.concat([relevance_metrics, quality_metrics], axis=1)
 
-        return FeatureEvaluationResult(full_results)
+        return FeatureEvaluationResult(
+            full_results,
+            X=X_subset,
+            y=y,
+            problem_type=self.problem_type,
+        )
+
+    def plot_distributions(
+        self, X: pd.DataFrame, y: pd.Series, features: List[str]
+    ) -> Dict[str, Figure]:
+        """
+        Plot feature vs target for each feature.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            Input features
+        y : pd.Series
+            Target variable
+        features : List[str]
+            List of features to plot
+
+        Returns
+        -------
+        Dict[str, Figure]
+            Dictionary mapping feature names to their figures
+        """
+        return {
+            feature: plot_feature_vs_target(X[feature], y, self.problem_type)
+            for feature in features
+        }
 
     def _compute_stability_metrics(self, X: pd.DataFrame) -> pd.DataFrame:
         """Compute stability metrics."""

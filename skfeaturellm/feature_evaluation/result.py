@@ -60,33 +60,53 @@ class FeatureEvaluationResult:
     def _create_report(self) -> str:
         """Build and return the full HTML report as a string."""
         template = _TEMPLATE_PATH.read_text(encoding="utf-8")
-        table_html = self.summary.to_html(float_format="{:.4f}".format)
-        plots_section = self._build_plots_section()
-        return template.replace("{{TABLE}}", table_html).replace(
-            "{{PLOTS}}", plots_section
-        )
+        return template.replace("{{FEATURE_CARDS}}", self._build_feature_cards())
 
-    def _build_plots_section(self) -> str:
-        """Generate base64-embedded plot images if context data is available."""
+    def _build_feature_cards(self) -> str:
+        """Build one card per feature, ordered by primary metric descending."""
+        cards = ""
+        for feature in self.summary.index:
+            plot_html = self._build_plot_html(feature)
+            stats_html = self._build_stats_html(feature)
+            cards += (
+                f"<section class='feature-card'>"
+                f"<h3 class='card-header'>{feature}</h3>"
+                f"<div class='card-body'>{plot_html}{stats_html}</div>"
+                f"</section>\n"
+            )
+        return cards
+
+    def _build_plot_html(self, feature: str) -> str:
+        """Generate a base64-embedded plot for a single feature, or empty string."""
         if self._X is None or self._y is None or self._problem_type is None:
             return ""
+        fig = plot_feature_vs_target(self._X[feature], self._y, self._problem_type)
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", bbox_inches="tight")
+        plt.close(fig)
+        buf.seek(0)
+        img_b64 = base64.b64encode(buf.read()).decode("utf-8")
+        return (
+            f"<div class='card-plot'>"
+            f'<img src="data:image/png;base64,{img_b64}" alt="{feature}">'
+            f"</div>"
+        )
 
-        imgs_html = ""
-        for feature in self._X.columns:
-            fig = plot_feature_vs_target(self._X[feature], self._y, self._problem_type)
-            buf = io.BytesIO()
-            fig.savefig(buf, format="png", bbox_inches="tight")
-            plt.close(fig)
-            buf.seek(0)
-            img_b64 = base64.b64encode(buf.read()).decode("utf-8")
-            imgs_html += (
-                f"<figure>"
-                f'<img src="data:image/png;base64,{img_b64}" alt="{feature}">'
-                f"<figcaption>{feature}</figcaption>"
-                f"</figure>\n"
+    def _build_stats_html(self, feature: str) -> str:
+        """Generate a vertical key-value stats list for a single feature."""
+        rows = ""
+        for metric, value in self._metrics_df.loc[feature].items():
+            if isinstance(value, float):
+                formatted = f"{value:.4f}" if not pd.isna(value) else "N/A"
+            else:
+                formatted = str(value)
+            rows += (
+                f"<div class='stat-row'>"
+                f"<span class='stat-label'>{metric}</span>"
+                f"<span class='stat-value'>{formatted}</span>"
+                f"</div>"
             )
-
-        return f"<h2>Feature Distributions</h2>\n<div class='plots'>\n{imgs_html}</div>"
+        return f"<div class='card-stats'>{rows}</div>"
 
     def __repr__(self) -> str:
         return self.summary.__repr__()

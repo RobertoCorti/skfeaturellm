@@ -35,79 +35,63 @@
             padding: 0 2rem;
         }
 
-        h2 {
-            font-size: 1rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #4f46e5;
-            margin: 2rem 0 0.75rem;
-            border-bottom: 2px solid #e0e7ff;
-            padding-bottom: 0.25rem;
-        }
-
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin-bottom: 1.5rem;
+        .feature-card {
             background: #fff;
-            border-radius: 6px;
-            overflow: hidden;
+            border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            margin-bottom: 1.5rem;
+            overflow: hidden;
         }
 
-        th, td {
-            padding: 10px 14px;
-            text-align: right;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        th {
+        .card-header {
             background: #e0e7ff;
             color: #3730a3;
+            font-size: 0.9rem;
             font-weight: 600;
-            font-size: 0.8rem;
-            text-transform: uppercase;
             letter-spacing: 0.04em;
-            position: sticky;
-            top: 0;
-        }
-
-        td:first-child, th:first-child { text-align: left; }
-
-        tr:nth-child(even) td { background: #f8fafc; }
-        tr:hover td { background: #eff6ff; }
-
-        .plots {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1.25rem;
-            margin-bottom: 2rem;
-        }
-
-        figure {
+            text-transform: uppercase;
             margin: 0;
-            background: #fff;
-            border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-            padding: 0.75rem;
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid #c7d2fe;
+        }
+
+        .card-body {
             display: flex;
-            flex-direction: column;
-            align-items: center;
+            align-items: flex-start;
+            gap: 1.5rem;
+            padding: 1rem;
         }
 
-        figure img {
-            max-width: 400px;
-            width: 100%;
+        .card-plot img {
             display: block;
+            max-width: 440px;
+            width: 100%;
         }
 
-        figcaption {
-            margin-top: 0.5rem;
-            font-size: 0.78rem;
+        .card-stats {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 0.85rem;
+        }
+
+        .stat-row:last-child { border-bottom: none; }
+
+        .stat-label {
             color: #64748b;
             font-weight: 500;
-            text-align: center;
+        }
+
+        .stat-value {
+            color: #1e293b;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
         }
     </style>
 </head>
@@ -116,9 +100,7 @@
         <h1>Feature Evaluation Report</h1>
     </header>
     <div class="container">
-        <h2>Metrics Summary</h2>
-        {{TABLE}}
-        {{PLOTS}}
+        {{FEATURE_CARDS}}
     </div>
 </body>
 </html>

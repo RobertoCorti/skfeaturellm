@@ -10,7 +10,6 @@ from sklearn.base import BaseEstimator, TransformerMixin
 
 from skfeaturellm.feature_evaluation import FeatureEvaluationResult, FeatureEvaluator
 from skfeaturellm.llm_interface import LLMInterface
-from skfeaturellm.reporting import FeatureReport
 from skfeaturellm.transformations import TransformationExecutor
 from skfeaturellm.types import ProblemType
 
@@ -219,17 +218,6 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         return self.feature_evaluator.evaluate(
             X_transformed, y, features=generated_features_names
         )
-
-    def generate_report(self) -> FeatureReport:
-        """
-        Generate a comprehensive report about the engineered features.
-
-        Returns
-        -------
-        FeatureReport
-            Report containing feature statistics and insights
-        """
-        raise NotImplementedError("This feature is not yet implemented.")
 
 
 if __name__ == "__main__":

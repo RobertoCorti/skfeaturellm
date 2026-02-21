@@ -145,3 +145,55 @@ def test_plot_distributions_classification(sample_data_classification):
     for fig in figs.values():
         assert isinstance(fig, plt.Figure)
         plt.close(fig)
+
+
+def test_to_html_creates_file(tmp_path, sample_data_regression):
+    X, y = sample_data_regression
+    evaluator = FeatureEvaluator(problem_type=ProblemType.REGRESSION)
+    features = ["feature_strong", "feature_weak"]
+
+    result = evaluator.evaluate(X, y, features)
+    output = tmp_path / "report.html"
+    result.to_html(str(output))
+
+    assert output.exists()
+
+
+def test_to_html_contains_metrics_table(tmp_path, sample_data_regression):
+    X, y = sample_data_regression
+    evaluator = FeatureEvaluator(problem_type=ProblemType.REGRESSION)
+    features = ["feature_strong", "feature_weak"]
+
+    result = evaluator.evaluate(X, y, features)
+    output = tmp_path / "report.html"
+    result.to_html(str(output))
+
+    content = output.read_text(encoding="utf-8")
+    assert "feature_strong" in content
+    assert "feature_weak" in content
+    assert "mutual_info" in content
+
+
+def test_to_html_contains_plots_when_context_available(
+    tmp_path, sample_data_regression
+):
+    X, y = sample_data_regression
+    evaluator = FeatureEvaluator(problem_type=ProblemType.REGRESSION)
+    features = ["feature_strong", "feature_weak"]
+
+    result = evaluator.evaluate(X, y, features)
+    output = tmp_path / "report.html"
+    result.to_html(str(output))
+
+    content = output.read_text(encoding="utf-8")
+    assert "data:image/png;base64" in content
+
+
+def test_to_html_no_plots_without_context(tmp_path):
+    df = pd.DataFrame({"val": [1]}, index=["feat1"])
+    result = FeatureEvaluationResult(df)
+    output = tmp_path / "report.html"
+    result.to_html(str(output))
+
+    content = output.read_text(encoding="utf-8")
+    assert "data:image/png;base64" not in content

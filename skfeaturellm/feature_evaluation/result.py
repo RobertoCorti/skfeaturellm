@@ -80,7 +80,10 @@ class FeatureEvaluationResult:
             buf.seek(0)
             img_b64 = base64.b64encode(buf.read()).decode("utf-8")
             imgs_html += (
-                f'<img src="data:image/png;base64,{img_b64}" alt="{feature}">\n'
+                f"<figure>"
+                f'<img src="data:image/png;base64,{img_b64}" alt="{feature}">'
+                f"<figcaption>{feature}</figcaption>"
+                f"</figure>\n"
             )
 
         return f"<h2>Feature Distributions</h2>\n<div class='plots'>\n{imgs_html}</div>"

@@ -11,6 +11,9 @@
   <a href="https://github.com/RobertoCorti/skfeaturellm/blob/feat/docs/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
   </a>
+  <a href="https://codecov.io/github/RobertoCorti/skfeaturellm" >
+ <img src="https://codecov.io/github/RobertoCorti/skfeaturellm/graph/badge.svg?token=66NXXD4WZO"/>
+ </a>
 </div>
 
 SKFeatureLLM is a Python library that brings the power of Large Language Models (LLMs) to feature engineering for tabular data, wrapped in a familiar scikit-learn–style API. The library aims to leverage LLMs' capabilities to automatically generate and implement meaningful features for your machine learning tasks.

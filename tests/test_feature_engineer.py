@@ -1,5 +1,6 @@
 """Tests for the LLMFeatureEngineer class."""
 
+import json
 import warnings
 from unittest.mock import Mock
 
@@ -318,3 +319,79 @@ def test_evaluate_features_is_transformed_true(
     engineer.evaluate_features(X_with_feature, y, is_transformed=True)
 
     transform_spy.assert_not_called()
+
+
+def test_save_without_fit_raises(mocker, tmp_path):
+    """Test that save() raises ValueError if fit has not been called."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    engineer = LLMFeatureEngineer(
+        problem_type="classification", model_name="gpt-4o", model_provider="openai"
+    )
+    with pytest.raises(ValueError, match="fit must be called before save"):
+        engineer.save(str(tmp_path / "features.json"))
+
+
+def test_save_and_load_roundtrip(mocker, tmp_path, sample_data_frame):
+    """Test that save() and load() round-trip generated_features_ideas correctly."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+
+    idea = FeatureEngineeringIdea(
+        type="mul",
+        feature_name="age_double",
+        columns=["age"],
+        parameters={"constant": 2.0},
+        description="Double the age",
+    )
+    engineer = LLMFeatureEngineer(
+        problem_type="classification",
+        model_name="gpt-4o",
+        target_col="label",
+        max_features=5,
+        feature_prefix="feat_",
+    )
+    engineer.generated_features_ideas = [idea]
+
+    save_path = str(tmp_path / "features.json")
+    engineer.save(save_path)
+
+    # Verify file contents
+    with open(save_path, encoding="utf-8") as f:
+        raw = json.load(f)
+    assert raw["params"]["problem_type"] == "classification"
+    assert raw["params"]["feature_prefix"] == "feat_"
+    assert len(raw["generated_features_ideas"]) == 1
+
+    # Restore and verify
+    loaded = LLMFeatureEngineer.load(save_path)
+    assert loaded.problem_type.value == "classification"
+    assert loaded.feature_prefix == "feat_"
+    assert loaded.target_col == "label"
+    assert loaded.max_features == 5
+    assert len(loaded.generated_features_ideas) == 1
+    assert loaded.generated_features_ideas[0].feature_name == "age_double"
+
+
+def test_load_allows_transform_without_fit(mocker, tmp_path, sample_data_frame):
+    """Test that a loaded engineer can call transform() without fit()."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+
+    idea = FeatureEngineeringIdea(
+        type="mul",
+        feature_name="age_double",
+        columns=["age"],
+        parameters={"constant": 2.0},
+        description="Double the age",
+    )
+    engineer = LLMFeatureEngineer(
+        problem_type="regression", model_name="gpt-4o", feature_prefix="llm_feat_"
+    )
+    engineer.generated_features_ideas = [idea]
+
+    save_path = str(tmp_path / "features.json")
+    engineer.save(save_path)
+
+    loaded = LLMFeatureEngineer.load(save_path)
+    result = loaded.transform(sample_data_frame)
+
+    assert "llm_feat_age_double" in result.columns
+    assert result["llm_feat_age_double"].tolist() == [50.0, 60.0]

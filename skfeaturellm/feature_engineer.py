@@ -2,6 +2,7 @@
 Main module for LLM-powered feature engineering.
 """
 
+import json
 import warnings
 from typing import Any, Dict, List, Optional
 
@@ -136,6 +137,66 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         ]
 
         return result_df
+
+    def save(self, path: str) -> None:
+        """
+        Serialize generated_features_ideas to a JSON file.
+
+        Parameters
+        ----------
+        path : str
+            Destination file path (e.g. "features_v1.json")
+
+        Raises
+        ------
+        ValueError
+            If fit() has not been called yet.
+        """
+        if not hasattr(self, "generated_features_ideas"):
+            raise ValueError("fit must be called before save")
+
+        data = {
+            "params": {
+                "problem_type": self.problem_type.value,
+                "model_name": self.model_name,
+                "target_col": self.target_col,
+                "max_features": self.max_features,
+                "feature_prefix": self.feature_prefix,
+            },
+            "generated_features_ideas": [
+                idea.model_dump() for idea in self.generated_features_ideas
+            ],
+        }
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+
+    @classmethod
+    def load(cls, path: str) -> "LLMFeatureEngineer":
+        """
+        Restore an LLMFeatureEngineer from a JSON file produced by save().
+
+        The returned engineer has generated_features_ideas populated so that
+        transform() can be called immediately without fit().
+
+        Parameters
+        ----------
+        path : str
+            Path to the JSON file written by save().
+
+        Returns
+        -------
+        LLMFeatureEngineer
+            Restored engineer instance.
+        """
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        engineer = cls(**data["params"])
+        engineer.generated_features_ideas = [
+            FeatureEngineeringIdea.model_validate(idea)
+            for idea in data["generated_features_ideas"]
+        ]
+        return engineer
 
     def _build_executor_config(
         self, ideas: List[Any]

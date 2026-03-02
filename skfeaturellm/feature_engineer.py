@@ -180,7 +180,7 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         pd.DataFrame
             Transformed features
         """
-        return self.fit(X, y).transform(X)
+        return self.fit(X).transform(X)
 
     def evaluate_features(
         self,

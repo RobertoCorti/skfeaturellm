@@ -7,6 +7,8 @@ from skfeaturellm.transformations.binary.arithmetic import (
     BinaryArithmeticTransformation,
     DivisionByZeroError,
     DivTransformation,
+    MaxTransformation,
+    MinTransformation,
     MulTransformation,
     SubTransformation,
 )
@@ -17,5 +19,7 @@ __all__ = [
     "SubTransformation",
     "MulTransformation",
     "DivTransformation",
+    "MaxTransformation",
+    "MinTransformation",
     "DivisionByZeroError",
 ]

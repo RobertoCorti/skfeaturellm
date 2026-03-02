@@ -1,5 +1,6 @@
 """Tests for binary transformations."""
 
+import numpy as np
 import pytest
 
 from skfeaturellm.transformations import (
@@ -7,6 +8,8 @@ from skfeaturellm.transformations import (
     ColumnNotFoundError,
     DivisionByZeroError,
     DivTransformation,
+    MaxTransformation,
+    MinTransformation,
     MulTransformation,
     SubTransformation,
 )
@@ -133,6 +136,70 @@ def test_div_by_zero_constant(sample_df):
 
     with pytest.raises(DivisionByZeroError):
         t.execute(sample_df)
+
+
+# =============================================================================
+# Test: MaxTransformation
+# =============================================================================
+
+
+def test_max_two_columns(sample_df):
+    """Test element-wise maximum of two columns."""
+    t = MaxTransformation("max_ab", columns=["a", "b"])
+    result = t.execute(sample_df)
+
+    assert result.name == "max_ab"
+    expected = np.maximum([10, 20, 30, 40], [2, 4, 5, 8])
+    np.testing.assert_array_almost_equal(result, expected)
+
+
+def test_max_column_and_constant(sample_df):
+    """Test element-wise maximum of column and constant (lower-bound clamp)."""
+    t = MaxTransformation("at_least_15", columns=["a"], parameters={"constant": 15.0})
+    result = t.execute(sample_df)
+
+    assert result.name == "at_least_15"
+    expected = np.maximum([10, 20, 30, 40], 15.0)
+    np.testing.assert_array_almost_equal(result, expected)
+
+
+def test_max_get_prompt_description():
+    """Test get_prompt_description returns a string."""
+    desc = MaxTransformation.get_prompt_description()
+    assert isinstance(desc, str)
+    assert "max" in desc.lower()
+
+
+# =============================================================================
+# Test: MinTransformation
+# =============================================================================
+
+
+def test_min_two_columns(sample_df):
+    """Test element-wise minimum of two columns."""
+    t = MinTransformation("min_ab", columns=["a", "b"])
+    result = t.execute(sample_df)
+
+    assert result.name == "min_ab"
+    expected = np.minimum([10, 20, 30, 40], [2, 4, 5, 8])
+    np.testing.assert_array_almost_equal(result, expected)
+
+
+def test_min_column_and_constant(sample_df):
+    """Test element-wise minimum of column and constant (upper-bound clamp)."""
+    t = MinTransformation("at_most_25", columns=["a"], parameters={"constant": 25.0})
+    result = t.execute(sample_df)
+
+    assert result.name == "at_most_25"
+    expected = np.minimum([10, 20, 30, 40], 25.0)
+    np.testing.assert_array_almost_equal(result, expected)
+
+
+def test_min_get_prompt_description():
+    """Test get_prompt_description returns a string."""
+    desc = MinTransformation.get_prompt_description()
+    assert isinstance(desc, str)
+    assert "min" in desc.lower()
 
 
 # =============================================================================

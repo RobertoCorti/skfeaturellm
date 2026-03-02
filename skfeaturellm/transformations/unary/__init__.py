@@ -9,6 +9,7 @@ from skfeaturellm.transformations.unary.arithmetic import (
     Log1pTransformation,
     LogTransformation,
     PowTransformation,
+    SqrtTransformation,
     UnaryTransformation,
 )
 
@@ -19,5 +20,6 @@ __all__ = [
     "AbsTransformation",
     "ExpTransformation",
     "PowTransformation",
+    "SqrtTransformation",
     "InvalidValueError",
 ]

@@ -17,6 +17,8 @@ from skfeaturellm.transformations.binary import (
     BinaryArithmeticTransformation,
     DivisionByZeroError,
     DivTransformation,
+    MaxTransformation,
+    MinTransformation,
     MulTransformation,
     SubTransformation,
 )
@@ -39,6 +41,7 @@ from skfeaturellm.transformations.unary import (
     Log1pTransformation,
     LogTransformation,
     PowTransformation,
+    SqrtTransformation,
     UnaryTransformation,
 )
 
@@ -62,6 +65,8 @@ __all__ = [
     "SubTransformation",
     "MulTransformation",
     "DivTransformation",
+    "MaxTransformation",
+    "MinTransformation",
     "DivisionByZeroError",
     # Unary
     "UnaryTransformation",
@@ -70,5 +75,6 @@ __all__ = [
     "AbsTransformation",
     "ExpTransformation",
     "PowTransformation",
+    "SqrtTransformation",
     "InvalidValueError",
 ]

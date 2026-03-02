@@ -150,6 +150,30 @@ class ExpTransformation(UnaryTransformation):
         return np.exp(values)
 
 
+@register_transformation("sqrt")
+class SqrtTransformation(UnaryTransformation):
+    """
+    Square root transformation: sqrt(column).
+
+    Raises InvalidValueError if any values are < 0.
+
+    Examples
+    --------
+    >>> t = SqrtTransformation("sqrt_area", columns=["area"])
+    """
+
+    @classmethod
+    def get_prompt_description(cls) -> str:
+        return "Square root (sqrt(column)) - useful for right-skewed non-negative data"
+
+    def _apply_operation(self, values: pd.Series) -> pd.Series:
+        if (values < 0).any():
+            raise InvalidValueError(
+                f"Sqrt transformation requires all values >= 0 in column '{self._column}'"
+            )
+        return np.sqrt(values)
+
+
 @register_transformation("pow")
 class PowTransformation(UnaryTransformation):
     """

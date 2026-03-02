@@ -13,7 +13,11 @@ from skfeaturellm.schemas import (
     FeatureDescriptions,
     FeatureEngineeringIdeas,
 )
-from skfeaturellm.transformations import get_transformation_types_for_prompt
+from skfeaturellm.transformations import (
+    get_binary_operation_types,
+    get_transformation_types_for_prompt,
+    get_unary_operation_types,
+)
 from skfeaturellm.types import ProblemType
 
 
@@ -154,6 +158,8 @@ class LLMInterface:
         )
 
         transformation_types = get_transformation_types_for_prompt()
+        unary_types = ", ".join(sorted(get_unary_operation_types()))
+        binary_types = ", ".join(sorted(get_binary_operation_types()))
 
         return {
             "feature_descriptions": feature_descriptions_schema.format(),
@@ -161,4 +167,6 @@ class LLMInterface:
             "target_description": target_description_message,
             "additional_context": additional_context,
             "transformation_types": transformation_types,
+            "unary_types": unary_types,
+            "binary_types": binary_types,
         }

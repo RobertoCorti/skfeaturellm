@@ -9,8 +9,10 @@ from skfeaturellm.transformations.unary.arithmetic import (
     Log1pTransformation,
     LogTransformation,
     PowTransformation,
+    SqrtTransformation,
     UnaryTransformation,
 )
+from skfeaturellm.transformations.unary.binning import BinTransformation
 
 __all__ = [
     "UnaryTransformation",
@@ -19,5 +21,7 @@ __all__ = [
     "AbsTransformation",
     "ExpTransformation",
     "PowTransformation",
+    "SqrtTransformation",
+    "BinTransformation",
     "InvalidValueError",
 ]

@@ -5,6 +5,7 @@ Binary arithmetic transformations for feature engineering.
 from abc import abstractmethod
 from typing import Any, Dict, List, Optional, Set, Union
 
+import numpy as np
 import pandas as pd
 
 from skfeaturellm.transformations.base import (
@@ -201,3 +202,45 @@ class DivTransformation(BinaryArithmeticTransformation):
                 )
         elif right == 0:
             raise DivisionByZeroError("Division by zero: constant is 0")
+
+
+@register_transformation("max")
+class MaxTransformation(BinaryArithmeticTransformation):
+    """
+    Element-wise maximum transformation: max(left, right).
+
+    Examples
+    --------
+    >>> t = MaxTransformation("max_ab", columns=["a", "b"])
+    >>> t = MaxTransformation("at_least_zero", columns=["a"], parameters={"constant": 0.0})
+    """
+
+    @classmethod
+    def get_prompt_description(cls) -> str:
+        return "Element-wise maximum of two columns or a column and a constant"
+
+    def _apply_operation(
+        self, left: pd.Series, right: Union[pd.Series, float]
+    ) -> pd.Series:
+        return np.maximum(left, right)
+
+
+@register_transformation("min")
+class MinTransformation(BinaryArithmeticTransformation):
+    """
+    Element-wise minimum transformation: min(left, right).
+
+    Examples
+    --------
+    >>> t = MinTransformation("min_ab", columns=["a", "b"])
+    >>> t = MinTransformation("at_most_100", columns=["a"], parameters={"constant": 100.0})
+    """
+
+    @classmethod
+    def get_prompt_description(cls) -> str:
+        return "Element-wise minimum of two columns or a column and a constant"
+
+    def _apply_operation(
+        self, left: pd.Series, right: Union[pd.Series, float]
+    ) -> pd.Series:
+        return np.minimum(left, right)

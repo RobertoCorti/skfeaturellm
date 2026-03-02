@@ -39,10 +39,10 @@ All transformations require:
 - description: A detailed explanation of what the feature represents and why it's useful
 - columns: A list of column names required for the transformation
 
-For UNARY operations (log, log1p, abs, exp, pow):
+For UNARY operations ({unary_types}):
 - columns: A list with exactly 1 column name
 
-For BINARY operations (add, sub, mul, div):
+For BINARY operations ({binary_types}):
 - columns: A list with 1 or 2 column names
   - For column-column operations: provide 2 column names
   - For column-constant operations: provide 1 column name + parameters with "constant"

@@ -303,6 +303,8 @@ def test_get_registered_transformations():
     assert "sub" in registry
     assert "mul" in registry
     assert "div" in registry
+    assert "max" in registry
+    assert "min" in registry
 
     # Unary operations
     assert "log" in registry
@@ -310,8 +312,10 @@ def test_get_registered_transformations():
     assert "pow" in registry
     assert "abs" in registry
     assert "exp" in registry
+    assert "sqrt" in registry
+    assert "bin" in registry
 
-    assert len(registry) == 9
+    assert len(registry) == 13
 
 
 def test_get_transformation_types_for_prompt():

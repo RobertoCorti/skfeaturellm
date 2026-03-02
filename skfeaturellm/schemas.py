@@ -74,8 +74,9 @@ class TransformationParameters(BaseModel):
     """
     Parameters for transformations.
 
-    Used for OpenAI structured output compatibility (additionalProperties: false).
-    Explicitly defines allowed fields: constant for binary ops, power for pow op.
+    Used for structured output compatibility.
+    Explicitly defines allowed fields: constant for binary ops, power for pow op,
+    n_bins for bin op.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -87,6 +88,18 @@ class TransformationParameters(BaseModel):
     power: Optional[float] = Field(
         default=None,
         description="Power exponent for pow transformation",
+    )
+    n_bins: Optional[int] = Field(
+        default=None,
+        description="Number of equal-width bins for bin transformation (must be >= 2)",
+    )
+    bin_edges: Optional[List[float]] = Field(
+        default=None,
+        description=(
+            "Custom bin edges for bin transformation (e.g. [0, 50000, 100000, 200000]). "
+            "Use instead of n_bins when meaningful domain thresholds are known. "
+            "Must have at least 2 values."
+        ),
     )
 
 

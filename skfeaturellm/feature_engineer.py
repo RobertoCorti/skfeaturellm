@@ -10,6 +10,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 
 from skfeaturellm.feature_evaluation import FeatureEvaluationResult, FeatureEvaluator
 from skfeaturellm.llm_interface import LLMInterface
+from skfeaturellm.schemas import FeatureEngineeringIdea
 from skfeaturellm.transformations import TransformationExecutor
 from skfeaturellm.types import ProblemType
 
@@ -49,7 +50,7 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         self.max_features = max_features
         self.feature_prefix = feature_prefix
         self.llm_interface = LLMInterface(model_name=model_name, **kwargs)
-        self.generated_features: List[Dict[str, Any]] = []
+        self.generated_features: List[FeatureEngineeringIdea] = []
         self.feature_evaluator = FeatureEvaluator(self.problem_type)
 
     def fit(
@@ -179,7 +180,7 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         pd.DataFrame
             Transformed features
         """
-        return self.fit(X, y).transform(X)
+        return self.fit(X).transform(X)
 
     def evaluate_features(
         self,
@@ -208,37 +209,13 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         if not hasattr(self, "generated_features_ideas"):
             raise ValueError("fit must be called before evaluate_features")
 
+        X_transformed = self.transform(X) if not is_transformed else X
+
         generated_features_names = [
             f"{self.feature_prefix}{idea.feature_name}"
             for idea in self.generated_features
         ]
 
-        X_transformed = self.transform(X) if not is_transformed else X
-
         return self.feature_evaluator.evaluate(
             X_transformed, y, features=generated_features_names
         )
-
-
-if __name__ == "__main__":
-
-    ## dataset of home prices
-    df = pd.DataFrame(
-        data={
-            "size": [1000, 1500, 2000, 2500, 3000],
-            "price": [100000, 150000, 200000, 250000, 300000],
-            "bedrooms": [3, 4, 5, 6, 7],
-            "bathrooms": [2, 2.5, 3, 3.5, 4],
-            "floors": [1, 1.5, 2, 2.5, 3],
-            "garage": [1, 2, 3, 4, 5],
-            "year_built": [2010, 2011, 2012, 2013, 2014],
-            "zip_code": ["10001", "10002", "10003", "10004", "10005"],
-        }
-    )
-
-    llm_feature_engineer = LLMFeatureEngineer(problem_type="regression")
-    llm_feature_engineer.fit(df, target_description="Price of the home")
-    print(llm_feature_engineer.generated_features_ideas)
-
-    df_fe = llm_feature_engineer.transform(df)
-    print(df_fe)

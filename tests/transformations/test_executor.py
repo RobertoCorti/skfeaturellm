@@ -313,8 +313,9 @@ def test_get_registered_transformations():
     assert "abs" in registry
     assert "exp" in registry
     assert "sqrt" in registry
+    assert "bin" in registry
 
-    assert len(registry) == 12
+    assert len(registry) == 13
 
 
 def test_get_transformation_types_for_prompt():

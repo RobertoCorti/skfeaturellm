@@ -82,7 +82,12 @@ jobs:
 
       - name: Run tests
         run: |
-          poetry run pytest
+          poetry run pytest --cov=skfeaturellm --cov-report=term-missing --cov-report=xml --cov-fail-under=90
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   create-tag:
     name: Create Version Tag

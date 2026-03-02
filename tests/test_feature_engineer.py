@@ -169,3 +169,152 @@ def test_transform_invalid_feature(
 
     # Invalid feature should not be in the result
     assert "llm_feat_invalid_feature" not in result.columns
+
+
+def test_fit_generates_ideas(
+    mocker, sample_data_frame
+):  # pylint: disable=redefined-outer-name
+    """Test that fit calls the LLM and populates generated_features_ideas."""
+    mock_ideas = Mock()
+    mock_ideas.ideas = [
+        FeatureEngineeringIdea(
+            type="mul",
+            feature_name="age_double",
+            columns=["age"],
+            parameters={"constant": 2.0},
+            description="Double the age",
+        )
+    ]
+    mock_generate = mocker.patch(
+        "skfeaturellm.llm_interface.LLMInterface.generate_engineered_features",
+        return_value=mock_ideas,
+    )
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+
+    engineer = LLMFeatureEngineer(problem_type="regression", model_name="gpt-4o")
+    engineer.fit(sample_data_frame)
+
+    mock_generate.assert_called_once()
+    assert len(engineer.generated_features_ideas) == 1
+    assert engineer.generated_features_ideas[0].feature_name == "age_double"
+
+
+def test_fit_auto_extracts_feature_descriptions(
+    mocker, sample_data_frame
+):  # pylint: disable=redefined-outer-name
+    """Test that fit auto-extracts feature descriptions from the DataFrame."""
+    mock_ideas = Mock()
+    mock_ideas.ideas = []
+    mock_generate = mocker.patch(
+        "skfeaturellm.llm_interface.LLMInterface.generate_engineered_features",
+        return_value=mock_ideas,
+    )
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+
+    engineer = LLMFeatureEngineer(problem_type="regression", model_name="gpt-4o")
+    engineer.fit(sample_data_frame)
+
+    call_kwargs = mock_generate.call_args.kwargs
+    feature_names = [f["name"] for f in call_kwargs["feature_descriptions"]]
+    assert feature_names == list(sample_data_frame.columns)
+
+
+def test_fit_transform_returns_dataframe(
+    mocker, sample_data_frame
+):  # pylint: disable=redefined-outer-name
+    """Test that fit_transform calls fit and transform and returns a DataFrame."""
+    mock_ideas = Mock()
+    mock_ideas.ideas = [
+        FeatureEngineeringIdea(
+            type="mul",
+            feature_name="age_double",
+            columns=["age"],
+            parameters={"constant": 2.0},
+            description="Double the age",
+        )
+    ]
+    mocker.patch(
+        "skfeaturellm.llm_interface.LLMInterface.generate_engineered_features",
+        return_value=mock_ideas,
+    )
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+
+    engineer = LLMFeatureEngineer(
+        problem_type="regression", model_name="gpt-4o", feature_prefix="llm_feat_"
+    )
+    result = engineer.fit_transform(sample_data_frame)
+
+    assert isinstance(result, pd.DataFrame)
+    assert "llm_feat_age_double" in result.columns
+
+
+def test_evaluate_features_without_fit_raises(
+    mocker, sample_data_frame
+):  # pylint: disable=redefined-outer-name
+    """Test that evaluate_features raises if fit has not been called."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    engineer = LLMFeatureEngineer(problem_type="regression", model_name="gpt-4o")
+    y = pd.Series([1, 2], name="target")
+
+    with pytest.raises(ValueError, match="fit must be called before evaluate_features"):
+        engineer.evaluate_features(sample_data_frame, y)
+
+
+def test_evaluate_features_is_transformed_false(
+    mocker, sample_data_frame
+):  # pylint: disable=redefined-outer-name
+    """Test evaluate_features calls transform internally when is_transformed=False."""
+    idea = FeatureEngineeringIdea(
+        type="mul",
+        feature_name="llm_feat_age_double",
+        columns=["age"],
+        parameters={"constant": 2.0},
+        description="Double the age",
+    )
+    mock_ideas = Mock()
+    mock_ideas.ideas = [idea]
+    mocker.patch(
+        "skfeaturellm.llm_interface.LLMInterface.generate_engineered_features",
+        return_value=mock_ideas,
+    )
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+
+    engineer = LLMFeatureEngineer(
+        problem_type="regression", model_name="gpt-4o", feature_prefix="llm_feat_"
+    )
+    engineer.generated_features_ideas = [idea]
+    y = pd.Series([1, 2], name="target")
+
+    result = engineer.evaluate_features(sample_data_frame, y, is_transformed=False)
+
+    assert "llm_feat_age_double" in engineer.generated_features_ideas[0].feature_name
+    assert result is not None
+
+
+def test_evaluate_features_is_transformed_true(
+    mocker, sample_data_frame
+):  # pylint: disable=redefined-outer-name
+    """Test evaluate_features skips transform when is_transformed=True."""
+    idea = FeatureEngineeringIdea(
+        type="mul",
+        feature_name="age_double",
+        columns=["age"],
+        parameters={"constant": 2.0},
+        description="Double the age",
+    )
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+
+    engineer = LLMFeatureEngineer(
+        problem_type="regression", model_name="gpt-4o", feature_prefix="llm_feat_"
+    )
+    engineer.generated_features_ideas = [idea]
+    engineer.generated_features = [idea]
+
+    transform_spy = mocker.patch.object(engineer, "transform", wraps=engineer.transform)
+    X_with_feature = sample_data_frame.copy()
+    X_with_feature["llm_feat_age_double"] = sample_data_frame["age"] * 2
+    y = pd.Series([1, 2], name="target")
+
+    engineer.evaluate_features(X_with_feature, y, is_transformed=True)
+
+    transform_spy.assert_not_called()

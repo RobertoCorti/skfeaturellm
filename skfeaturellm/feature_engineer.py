@@ -219,27 +219,3 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         return self.feature_evaluator.evaluate(
             X_transformed, y, features=generated_features_names
         )
-
-
-if __name__ == "__main__":
-
-    ## dataset of home prices
-    df = pd.DataFrame(
-        data={
-            "size": [1000, 1500, 2000, 2500, 3000],
-            "price": [100000, 150000, 200000, 250000, 300000],
-            "bedrooms": [3, 4, 5, 6, 7],
-            "bathrooms": [2, 2.5, 3, 3.5, 4],
-            "floors": [1, 1.5, 2, 2.5, 3],
-            "garage": [1, 2, 3, 4, 5],
-            "year_built": [2010, 2011, 2012, 2013, 2014],
-            "zip_code": ["10001", "10002", "10003", "10004", "10005"],
-        }
-    )
-
-    llm_feature_engineer = LLMFeatureEngineer(problem_type="regression")
-    llm_feature_engineer.fit(df, target_description="Price of the home")
-    print(llm_feature_engineer.generated_features_ideas)
-
-    df_fe = llm_feature_engineer.transform(df)
-    print(df_fe)

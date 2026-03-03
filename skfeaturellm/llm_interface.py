@@ -63,6 +63,7 @@ class LLMInterface:
         target_description: Optional[str] = None,
         max_features: Optional[int] = None,
         problem_type: Optional[ProblemType] = None,
+        dataset_statistics: Optional[str] = None,
     ) -> FeatureEngineeringIdeas:
         """
         Generate feature engineering ideas.
@@ -75,6 +76,8 @@ class LLMInterface:
             Description of the target variable and task
         max_features : Optional[int]
             Maximum number of features to generate
+        dataset_statistics : Optional[str]
+            Pre-formatted dataset statistics string from _format_dataset_statistics
 
         Returns
         -------
@@ -87,6 +90,7 @@ class LLMInterface:
             target_description=target_description,
             problem_type=problem_type,
             max_features=max_features,
+            dataset_statistics=dataset_statistics,
         )
 
         return self.chain.invoke(prompt_context)
@@ -119,6 +123,7 @@ class LLMInterface:
         target_description: Optional[str] = None,
         max_features: Optional[int] = None,
         problem_type: Optional[ProblemType] = None,
+        dataset_statistics: Optional[str] = None,
     ) -> str:
         """
         Generate the prompt for the LLM.
@@ -131,6 +136,8 @@ class LLMInterface:
             Description of the target variable and task
         max_features : Optional[int]
             Maximum number of features to generate
+        dataset_statistics : Optional[str]
+            Pre-formatted dataset statistics string from _format_dataset_statistics
 
         Returns
         -------
@@ -162,10 +169,15 @@ class LLMInterface:
         unary_types = ", ".join(sorted(get_unary_operation_types()))
         binary_types = ", ".join(sorted(get_binary_operation_types()))
 
+        dataset_statistics_message = (
+            dataset_statistics if dataset_statistics is not None else "Not provided."
+        )
+
         return {
             "feature_descriptions": feature_descriptions_schema.format(),
             "problem_type": problem_type_message,
             "target_description": target_description_message,
+            "dataset_statistics": dataset_statistics_message,
             "additional_context": additional_context,
             "transformation_types": transformation_types,
             "unary_types": unary_types,

@@ -57,6 +57,7 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
     def fit(
         self,
         X: pd.DataFrame,
+        y: Optional[pd.Series] = None,
         feature_descriptions: Optional[List[Dict[str, Any]]] = None,
         target_description: Optional[str] = None,
     ) -> "LLMFeatureEngineer":
@@ -67,6 +68,8 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         ----------
         X : pd.DataFrame
             Input features
+        y : Optional[pd.Series]
+            Target variable used to compute dataset statistics for the prompt
         feature_descriptions : Optional[List[Dict[str, Any]]]
             List of feature descriptions
         target_description : Optional[str]
@@ -84,12 +87,17 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
                 for col in X.columns
             ]
 
+        dataset_statistics = LLMInterface._format_dataset_statistics(
+            X, y, self.problem_type
+        )
+
         # Generate feature engineering ideas
         self.generated_features_ideas = self.llm_interface.generate_engineered_features(
             feature_descriptions=feature_descriptions,
             problem_type=self.problem_type.value,
             target_description=target_description,
             max_features=self.max_features,
+            dataset_statistics=dataset_statistics,
         ).ideas
 
         return self

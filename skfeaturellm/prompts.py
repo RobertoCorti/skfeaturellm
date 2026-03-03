@@ -16,6 +16,9 @@ Problem Type:
 Target Description:
 {target_description}
 
+Dataset Statistics:
+{dataset_statistics}
+
 Additional Context:
 {additional_context}
 

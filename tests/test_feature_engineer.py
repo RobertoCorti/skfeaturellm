@@ -395,3 +395,45 @@ def test_load_allows_transform_without_fit(mocker, tmp_path, sample_data_frame):
 
     assert "llm_feat_age_double" in result.columns
     assert result["llm_feat_age_double"].tolist() == [50.0, 60.0]
+
+
+def test_fit_passes_dataset_statistics_to_llm(
+    mocker, sample_data_frame
+):  # pylint: disable=redefined-outer-name
+    """fit() with y computes statistics and forwards them to generate_engineered_features."""
+    mock_ideas = Mock()
+    mock_ideas.ideas = []
+    mock_generate = mocker.patch(
+        "skfeaturellm.llm_interface.LLMInterface.generate_engineered_features",
+        return_value=mock_ideas,
+    )
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+
+    y = pd.Series([0.1, 0.9], name="target")
+    engineer = LLMFeatureEngineer(problem_type="regression", model_name="gpt-4o")
+    engineer.fit(sample_data_frame, y=y)
+
+    call_kwargs = mock_generate.call_args.kwargs
+    assert "dataset_statistics" in call_kwargs
+    assert "Target statistics:" in call_kwargs["dataset_statistics"]
+    assert "Feature statistics (numeric columns):" in call_kwargs["dataset_statistics"]
+
+
+def test_fit_without_y_dataset_statistics_not_provided(
+    mocker, sample_data_frame
+):  # pylint: disable=redefined-outer-name
+    """fit() without y still passes dataset_statistics containing 'Not provided.'."""
+    mock_ideas = Mock()
+    mock_ideas.ideas = []
+    mock_generate = mocker.patch(
+        "skfeaturellm.llm_interface.LLMInterface.generate_engineered_features",
+        return_value=mock_ideas,
+    )
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+
+    engineer = LLMFeatureEngineer(problem_type="regression", model_name="gpt-4o")
+    engineer.fit(sample_data_frame)
+
+    call_kwargs = mock_generate.call_args.kwargs
+    assert "dataset_statistics" in call_kwargs
+    assert "Not provided." in call_kwargs["dataset_statistics"]

@@ -21,19 +21,29 @@ Key Concepts
 
 Quickstart
 ~~~~~~~~~~~~~~~~~~~
-The code snippets below are designed to introduce ``skfeaturellm``'s functionality so you can start using its functionality quickly.
+The code snippets below introduce ``skfeaturellm``'s core workflow. Both examples follow the same pattern:
+
+1. Split data into train and test sets.
+2. Call ``fit()`` on the training set only, passing ``y`` so that dataset statistics are injected into the LLM prompt.
+3. Call ``transform()`` on each split independently.
+
+.. note::
+   Always fit on training data only to avoid leaking test-set information into the LLM prompt.
 
 Classification
 --------------
-Example applied to a classification task. The example uses the `Iris plants dataset <https://scikit-learn.org/stable/datasets/toy_dataset.html#iris-dataset>`_ from `sklearn.datasets`. The ``LLMFeatureEngineer`` class is then used to perform feature engineering on the dataset.
+Example applied to a classification task. The example uses the `Iris plants dataset <https://scikit-learn.org/stable/datasets/toy_dataset.html#iris-dataset>`_ from `sklearn.datasets`.
 
 .. code-block:: python
 
     from sklearn.datasets import load_iris
+    from sklearn.model_selection import train_test_split
     from skfeaturellm import LLMFeatureEngineer
 
     iris_data = load_iris(as_frame=True)
     X, y = iris_data.data, iris_data.target
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     target_description = (
         "Classification task predicting species of iris plants "
@@ -52,35 +62,39 @@ Example applied to a classification task. The example uses the `Iris plants data
         max_features=5,
     )
 
-    # Fit the LLMFeatureEngineer (uses LLM to generate feature ideas)
+    # Fit on training data — passing y injects dataset statistics into the LLM prompt
     llm_feature_engineer.fit(
-        X=X,
+        X=X_train,
+        y=y_train,
         feature_descriptions=feature_descriptions,
         target_description=target_description,
     )
 
-    # Transform the data (apply generated transformations)
-    X_transformed = llm_feature_engineer.transform(X)
+    # Transform train and test independently
+    X_train_transformed = llm_feature_engineer.transform(X_train)
+    X_test_transformed = llm_feature_engineer.transform(X_test)
 
-    print(X_transformed.head())
-    print(X_transformed.columns)
+    print(X_train_transformed.columns.tolist())
 
 
 Regression
 -----------
-Example applied to a regression task. The example uses the `Diabetes dataset <https://scikit-learn.org/stable/datasets/toy_dataset.html#diabetes-dataset>`_ from `sklearn.datasets`. The ``LLMFeatureEngineer`` class is then used to perform feature engineering on the dataset.
+Example applied to a regression task. The example uses the `Diabetes dataset <https://scikit-learn.org/stable/datasets/toy_dataset.html#diabetes-dataset>`_ from `sklearn.datasets`.
 
 .. code-block:: python
 
     from sklearn.datasets import load_diabetes
+    from sklearn.model_selection import train_test_split
     from skfeaturellm import LLMFeatureEngineer
 
     diabetes_data = load_diabetes(as_frame=True)
     X, y = diabetes_data.data, diabetes_data.target
 
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
     target_description = (
         "Regression task predicting the quantitative measure of disease progression "
-        "one year after baselines"
+        "one year after baseline"
     )
     norm_method = "mean centered and scaled by the standard deviation"
     feature_descriptions = [
@@ -102,15 +116,16 @@ Example applied to a regression task. The example uses the `Diabetes dataset <ht
         max_features=5,
     )
 
-    # Fit the LLMFeatureEngineer
+    # Fit on training data — passing y injects dataset statistics into the LLM prompt
     llm_feature_engineer.fit(
-        X=X,
+        X=X_train,
+        y=y_train,
         feature_descriptions=feature_descriptions,
         target_description=target_description,
     )
 
-    # Transform the data
-    X_transformed = llm_feature_engineer.transform(X)
+    # Transform train and test independently
+    X_train_transformed = llm_feature_engineer.transform(X_train)
+    X_test_transformed = llm_feature_engineer.transform(X_test)
 
-    print(X_transformed.head())
-    print(X_transformed.columns)
+    print(X_train_transformed.columns.tolist())

@@ -6,15 +6,18 @@ This page contains practical examples of using ``skfeaturellm`` in different sce
 
 Classification
 --------------
-Example applied to a classification task using the `Iris plants dataset <https://scikit-learn.org/stable/datasets/toy_dataset.html#iris-dataset>`_ from ``sklearn.datasets``. The ``LLMFeatureEngineer`` uses an LLM to generate feature ideas (e.g., ratios, log transforms) and then executes them via the Feature Transformation DSL.
+Example applied to a classification task using the `Iris plants dataset <https://scikit-learn.org/stable/datasets/toy_dataset.html#iris-dataset>`_ from ``sklearn.datasets``. Passing ``y`` to ``fit()`` injects dataset statistics into the LLM prompt for richer feature suggestions.
 
 .. code-block:: python
 
     from sklearn.datasets import load_iris
+    from sklearn.model_selection import train_test_split
     from skfeaturellm import LLMFeatureEngineer
 
     iris_data = load_iris(as_frame=True)
     X, y = iris_data.data, iris_data.target
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     target_description = (
         "Classification task predicting species of iris plants "
@@ -27,21 +30,24 @@ Example applied to a classification task using the `Iris plants dataset <https:/
         {"name": "petal width (cm)", "type": "float64", "description": "The petal widths in centimeters"},
     ]
 
-    llm_feature_engineer = LLMFeatureEngineer(
+    engineer = LLMFeatureEngineer(
         problem_type="classification",
         model_name="gpt-4o",
         max_features=5,
     )
 
-    llm_feature_engineer.fit(
-        X=X,
+    # Fit on training data only — passing y injects dataset statistics into the prompt
+    engineer.fit(
+        X=X_train,
+        y=y_train,
         feature_descriptions=feature_descriptions,
         target_description=target_description,
     )
 
-    X_transformed = llm_feature_engineer.transform(X)
-    print(X_transformed.head())
-    print(X_transformed.columns)
+    X_train_transformed = engineer.transform(X_train)
+    X_test_transformed = engineer.transform(X_test)
+
+    print(X_train_transformed.columns.tolist())
 
 
 Regression
@@ -51,14 +57,17 @@ Example applied to a regression task using the `Diabetes dataset <https://scikit
 .. code-block:: python
 
     from sklearn.datasets import load_diabetes
+    from sklearn.model_selection import train_test_split
     from skfeaturellm import LLMFeatureEngineer
 
     diabetes_data = load_diabetes(as_frame=True)
     X, y = diabetes_data.data, diabetes_data.target
 
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
     target_description = (
         "Regression task predicting the quantitative measure of disease progression "
-        "one year after baselines"
+        "one year after baseline"
     )
     norm_method = "mean centered and scaled by the standard deviation"
     feature_descriptions = [
@@ -67,36 +76,71 @@ Example applied to a regression task using the `Diabetes dataset <https://scikit
         {"name": "bmi", "type": "float64", "description": f"Body mass index ({norm_method})"},
         {"name": "bp", "type": "float64", "description": f"Average blood pressure ({norm_method})"},
         {"name": "s1", "type": "float64", "description": f"TC, total serum cholesterol ({norm_method})"},
-        {"name": "s2", "type": "float64", "description": f"LDL ({norm_method})"},
-        {"name": "s3", "type": "float64", "description": f"HDL ({norm_method})"},
-        {"name": "s4", "type": "float64", "description": f"TCH ratio ({norm_method})"},
-        {"name": "s5", "type": "float64", "description": f"s5 ltg, log serum triglycerides ({norm_method})"},
-        {"name": "s6", "type": "float64", "description": f"s6 glu, blood sugar ({norm_method})"},
+        {"name": "s2", "type": "float64", "description": f"LDL, low-density lipoprotein ({norm_method})"},
+        {"name": "s3", "type": "float64", "description": f"HDL, high-density lipoprotein ({norm_method})"},
+        {"name": "s4", "type": "float64", "description": f"TCH, total cholesterol/HDL ratio ({norm_method})"},
+        {"name": "s5", "type": "float64", "description": f"s5 ltg, possibly log of serum triglycerides ({norm_method})"},
+        {"name": "s6", "type": "float64", "description": f"s6 glu, blood sugar level ({norm_method})"},
     ]
 
-    llm_feature_engineer = LLMFeatureEngineer(
+    engineer = LLMFeatureEngineer(
         problem_type="regression",
         model_name="gpt-4o",
         max_features=5,
     )
 
-    llm_feature_engineer.fit(
-        X=X,
+    engineer.fit(
+        X=X_train,
+        y=y_train,
         feature_descriptions=feature_descriptions,
         target_description=target_description,
     )
 
-    X_transformed = llm_feature_engineer.transform(X)
-    print(X_transformed.head())
-    print(X_transformed.columns)
+    X_train_transformed = engineer.transform(X_train)
+    X_test_transformed = engineer.transform(X_test)
 
 
-Feature Evaluation
-------------------
-After fitting and transforming, you can evaluate the quality of generated features using mutual information (classification) or correlation (regression):
+Feature Evaluation and Selection
+---------------------------------
+``evaluate_features()`` scores each generated feature using mutual information (classification) or Pearson/Spearman correlation (regression). Use the results to select only features that provide real signal before training your final model.
 
 .. code-block:: python
 
-    # After fit and transform
-    eval_results = llm_feature_engineer.evaluate_features(X, y, is_transformed=False)
-    print(eval_results)
+    # Score features on training data
+    eval_result = engineer.evaluate_features(X_train, y_train, is_transformed=False)
+    print(eval_result.summary())
+
+    # Select features with a positive mutual information score
+    scores = eval_result.summary()
+    good_features = scores[scores["mutual_information"] > 0].index.tolist()
+
+    # Build train and test sets with only the selected features
+    base_cols = X_train.columns.tolist()
+    X_train_eng = engineer.transform(X_train)[base_cols + good_features]
+    X_test_eng = engineer.transform(X_test)[base_cols + good_features]
+
+
+Saving and Loading
+------------------
+Persist the fitted engineer after the LLM call so you can apply the same transformations to new data later without re-running the model.
+
+.. code-block:: python
+
+    # Save after fitting
+    engineer.save("engineer.json")
+
+    # Restore in a later session or on a different machine
+    from skfeaturellm import LLMFeatureEngineer
+    loaded = LLMFeatureEngineer.load("engineer.json")
+
+    # Apply to new data — no LLM call required
+    X_new_transformed = loaded.transform(X_new)
+
+
+Notebook Tutorial
+-----------------
+A complete end-to-end tutorial using the `Bank Loan Credit Risk dataset <https://www.kaggle.com/datasets/udaymalviya/bank-loan-data>`_ is available as a Jupyter notebook in the ``examples/`` directory of the repository:
+
+- `01_SKFeatureLLM_Tutorial.ipynb <https://github.com/RobertoCorti/skfeaturellm/blob/main/examples/01_SKFeatureLLM_Tutorial.ipynb>`_
+
+The notebook covers: data loading with ``kagglehub``, baseline XGBoost, LLM feature engineering with dataset statistics injection, per-feature evaluation, feature selection, and engineer persistence with ``save()`` / ``load()``.

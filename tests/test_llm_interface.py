@@ -2,10 +2,12 @@
 
 from unittest.mock import Mock
 
+import pandas as pd
 import pytest
 
 from skfeaturellm.llm_interface import LLMInterface
 from skfeaturellm.schemas import FeatureEngineeringIdea
+from skfeaturellm.types import ProblemType
 
 
 @pytest.fixture
@@ -101,3 +103,119 @@ def test_generate_features(
     assert isinstance(result, list)
     assert len(result) == 1
     assert result[0].feature_name == "age_squared"
+
+
+# --- _format_dataset_statistics ---
+
+
+@pytest.fixture
+def regression_xy():
+    """Small regression dataset with one non-numeric column."""
+    X = pd.DataFrame(
+        {
+            "age": [25.0, 30.0, 35.0, 40.0, 45.0],
+            "income": [50_000.0, 60_000.0, 70_000.0, 80_000.0, 90_000.0],
+            "city": ["Paris", "Lyon", "Marseille", "Paris", "Lyon"],
+        }
+    )
+    y = pd.Series([1.5, 2.5, 3.5, 4.5, 5.5], name="target")
+    return X, y
+
+
+@pytest.fixture
+def classification_xy():
+    """Small binary classification dataset."""
+    X = pd.DataFrame(
+        {
+            "age": [25.0, 30.0, 35.0, 40.0, 45.0, 50.0],
+            "income": [50_000.0, 60_000.0, 70_000.0, 80_000.0, 90_000.0, 100_000.0],
+        }
+    )
+    y = pd.Series(["cat", "dog", "cat", "dog", "cat", "dog"], name="label")
+    return X, y
+
+
+def test_format_dataset_statistics_regression(
+    regression_xy,
+):  # pylint: disable=redefined-outer-name
+    """Target stats are min/max/mean/std; feature table and pearson_corr section present."""
+    X, y = regression_xy
+    result = LLMInterface._format_dataset_statistics(X, y, ProblemType.REGRESSION)
+
+    assert "Target statistics:" in result
+    assert (
+        "min=" in result and "max=" in result and "mean=" in result and "std=" in result
+    )
+    assert "Feature statistics (numeric columns):" in result
+    assert "age" in result
+    assert "skewness" in result
+    assert "Feature statistics vs target:" in result
+    assert "pearson_corr" in result
+
+
+def test_format_dataset_statistics_classification(
+    classification_xy,
+):  # pylint: disable=redefined-outer-name
+    """Target stats show class counts; vs-target shows class-mean columns, not pearson_corr."""
+    X, y = classification_xy
+    result = LLMInterface._format_dataset_statistics(X, y, ProblemType.CLASSIFICATION)
+
+    assert "Target statistics:" in result
+    assert "class 'cat'" in result
+    assert "class 'dog'" in result
+    assert "%" in result
+    assert "Feature statistics (numeric columns):" in result
+    assert "Feature statistics vs target:" in result
+    assert "pearson_corr" not in result
+    assert "cat" in result and "dog" in result
+
+
+def test_format_dataset_statistics_no_target(
+    regression_xy,
+):  # pylint: disable=redefined-outer-name
+    """When y is None, target block says 'Not provided.' and vs-target section is absent."""
+    X, _ = regression_xy
+    result = LLMInterface._format_dataset_statistics(X, None, ProblemType.REGRESSION)
+
+    assert "Not provided." in result
+    assert "Feature statistics (numeric columns):" in result
+    assert "Feature statistics vs target:" not in result
+
+
+def test_format_dataset_statistics_no_numeric_cols():
+    """When X has no numeric columns, feature block says 'No numeric features.'."""
+    X = pd.DataFrame({"city": ["Paris", "Lyon", "Marseille"]})
+    y = pd.Series([1.0, 2.0, 3.0], name="target")
+    result = LLMInterface._format_dataset_statistics(X, y, ProblemType.REGRESSION)
+
+    assert "No numeric features." in result
+    assert "Feature statistics vs target:" not in result
+
+
+# --- generate_prompt_context: dataset_statistics key ---
+
+
+def test_generate_prompt_context_includes_dataset_statistics(
+    mocker, sample_features
+):  # pylint: disable=redefined-outer-name
+    """dataset_statistics value is passed through to the prompt context dict."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    llm = LLMInterface(model_name="gpt-4o", model_provider="openai")
+    stats = "Target statistics:\n  min=1, max=10"
+    ctx = llm.generate_prompt_context(
+        feature_descriptions=sample_features, dataset_statistics=stats
+    )
+
+    assert "dataset_statistics" in ctx
+    assert ctx["dataset_statistics"] == stats
+
+
+def test_generate_prompt_context_default_dataset_statistics(
+    mocker, sample_features
+):  # pylint: disable=redefined-outer-name
+    """When dataset_statistics is omitted, the key defaults to 'Not provided.'."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    llm = LLMInterface(model_name="gpt-4o", model_provider="openai")
+    ctx = llm.generate_prompt_context(feature_descriptions=sample_features)
+
+    assert ctx["dataset_statistics"] == "Not provided."

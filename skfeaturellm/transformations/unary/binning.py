@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Union
 import pandas as pd
 
 from skfeaturellm.transformations.base import TransformationError
-from skfeaturellm.transformations.executor import register_transformation
+from skfeaturellm.transformations.pipeline import register_transformation
 from skfeaturellm.transformations.unary.arithmetic import UnaryTransformation
 
 
@@ -80,6 +80,8 @@ class BinTransformation(UnaryTransformation):
                 raise ValueError("'bin_edges' must contain at least 2 values")
             self._bins = bin_edges
 
+        self.bin_edges_: Optional[List[float]] = None
+
     @classmethod
     def get_prompt_description(cls) -> str:
         return (
@@ -89,9 +91,23 @@ class BinTransformation(UnaryTransformation):
             "(e.g. [0, 50000, 100000, 200000] for income brackets)"
         )
 
+    def fit(self, df: pd.DataFrame) -> "BinTransformation":
+        """Learn bin edges from training data when n_bins mode is used."""
+        self.validate_columns(df)
+        values = df[self._column]
+        if isinstance(self._bins, int):
+            _, edges = pd.cut(values, bins=self._bins, retbins=True)
+            self.bin_edges_ = list(edges)
+        else:
+            self.bin_edges_ = list(self._bins)
+        return self
+
     def _apply_operation(self, values: pd.Series) -> pd.Series:
+        bins: Union[int, List[float]] = (
+            self.bin_edges_ if self.bin_edges_ is not None else self._bins
+        )
         try:
-            return pd.cut(values, bins=self._bins).astype(str)
+            return pd.cut(values, bins=bins).astype(str)
         except ValueError as e:
             raise TransformationError(
                 f"Binning failed for column '{self._column}': {e}"

@@ -13,6 +13,15 @@ Core Classes
    :show-inheritance:
 
 
+Feature Engineering Transformer
+--------------------------------
+
+.. automodule:: skfeaturellm.feature_engineering_transformer
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
 LLM Interface
 -------------
 

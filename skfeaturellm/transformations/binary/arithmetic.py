@@ -12,7 +12,7 @@ from skfeaturellm.transformations.base import (
     BaseTransformation,
     TransformationError,
 )
-from skfeaturellm.transformations.executor import register_transformation
+from skfeaturellm.transformations.pipeline import register_transformation
 
 
 class DivisionByZeroError(TransformationError):
@@ -98,8 +98,8 @@ class BinaryArithmeticTransformation(BaseTransformation):
         """Apply the specific arithmetic operation."""
         pass
 
-    def execute(self, df: pd.DataFrame) -> pd.Series:
-        """Execute the transformation."""
+    def transform(self, df: pd.DataFrame) -> pd.Series:
+        """Apply the transformation."""
         self.validate_columns(df)
         left, right = self._get_operands(df)
         result = self._apply_operation(left, right)

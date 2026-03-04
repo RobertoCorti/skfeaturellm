@@ -2,17 +2,17 @@
 Main module for LLM-powered feature engineering.
 """
 
-import json
 import warnings
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 
+from skfeaturellm.feature_engineering_transformer import FeatureEngineeringTransformer
 from skfeaturellm.feature_evaluation import FeatureEvaluationResult, FeatureEvaluator
 from skfeaturellm.llm_interface import LLMInterface
 from skfeaturellm.schemas import FeatureEngineeringIdea
-from skfeaturellm.transformations import TransformationExecutor
+from skfeaturellm.transformations import TransformationPipeline
 from skfeaturellm.types import ProblemType
 
 
@@ -124,12 +124,12 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         executor_config = self._build_executor_config(self.generated_features_ideas)
 
         # Create executor with raise_on_error=False to skip failed transformations
-        executor = TransformationExecutor.from_dict(
+        executor = TransformationPipeline.from_dict(
             executor_config, raise_on_error=False
         )
 
         # Execute transformations
-        result_df = executor.execute(X)
+        result_df = executor.fit(X).transform(X)
 
         # Track which features were successfully created
         expected_feature_names = [
@@ -146,14 +146,23 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
 
         return result_df
 
-    def save(self, path: str) -> None:
+    def to_transformer(
+        self, features: Optional[List[str]] = None
+    ) -> FeatureEngineeringTransformer:
         """
-        Serialize generated_features_ideas to a JSON file.
+        Create a FeatureEngineeringTransformer from the successfully generated features.
 
         Parameters
         ----------
-        path : str
-            Destination file path (e.g. "features_v1.json")
+        features : list of str, optional
+            Names of features to include. Accepts names with or without the
+            feature_prefix. If None, all successfully generated features are
+            included.
+
+        Returns
+        -------
+        FeatureEngineeringTransformer
+            Unfitted transformer ready to be used in a Pipeline.
 
         Raises
         ------
@@ -161,50 +170,25 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
             If fit() has not been called yet.
         """
         if not hasattr(self, "generated_features_ideas"):
-            raise ValueError("fit must be called before save")
+            raise ValueError("fit must be called before to_transformer")
 
-        data = {
-            "params": {
-                "problem_type": self.problem_type.value,
-                "model_name": self.model_name,
-                "target_col": self.target_col,
-                "max_features": self.max_features,
-                "feature_prefix": self.feature_prefix,
-            },
-            "generated_features_ideas": [
-                idea.model_dump() for idea in self.generated_features_ideas
-            ],
-        }
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
+        ideas = self.generated_features
 
-    @classmethod
-    def load(cls, path: str) -> "LLMFeatureEngineer":
-        """
-        Restore an LLMFeatureEngineer from a JSON file produced by save().
+        if features is not None:
+            features_set = set(features)
+            ideas = [
+                idea
+                for idea in ideas
+                if idea.feature_name in features_set
+                or f"{self.feature_prefix}{idea.feature_name}" in features_set
+            ]
 
-        The returned engineer has generated_features_ideas populated so that
-        transform() can be called immediately without fit().
-
-        Parameters
-        ----------
-        path : str
-            Path to the JSON file written by save().
-
-        Returns
-        -------
-        LLMFeatureEngineer
-            Restored engineer instance.
-        """
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        engineer = cls(**data["params"])
-        engineer.generated_features_ideas = [
-            FeatureEngineeringIdea.model_validate(idea)
-            for idea in data["generated_features_ideas"]
-        ]
-        return engineer
+        config = self._build_executor_config(ideas)
+        return FeatureEngineeringTransformer(
+            transformations=config["transformations"],
+            feature_prefix=self.feature_prefix,
+            raise_on_error=False,
+        )
 
     def _build_executor_config(
         self, ideas: List[Any]
@@ -220,7 +204,7 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         Returns
         -------
         Dict
-            Configuration dict for TransformationExecutor.from_dict()
+            Configuration dict for TransformationPipeline.from_dict()
         """
         transformations = []
         for idea in ideas:
@@ -230,26 +214,6 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
             transformations.append(config)
 
         return {"transformations": transformations}
-
-    def fit_transform(
-        self, X: pd.DataFrame, y: Optional[pd.Series] = None, **fit_params: Any
-    ) -> pd.DataFrame:
-        """
-        Generate features and transform the input data in one step.
-
-        Parameters
-        ----------
-        X : pd.DataFrame
-            Input features
-        y : Optional[pd.Series]
-            Target variable for supervised feature engineering
-
-        Returns
-        -------
-        pd.DataFrame
-            Transformed features
-        """
-        return self.fit(X).transform(X)
 
     def evaluate_features(
         self,

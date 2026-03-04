@@ -1,8 +1,20 @@
 """Tests for binning (discretization) transformations."""
 
+import pandas as pd
 import pytest
 
 from skfeaturellm.transformations import BinTransformation
+
+
+@pytest.fixture
+def train_df():
+    return pd.DataFrame({"value": [0.0, 10.0, 20.0, 30.0, 40.0]})
+
+
+@pytest.fixture
+def test_df():
+    return pd.DataFrame({"value": [5.0, 15.0, 35.0]})
+
 
 # =============================================================================
 # Test: BinTransformation — n_bins mode
@@ -12,7 +24,7 @@ from skfeaturellm.transformations import BinTransformation
 def test_bin_transformation_output_type(sample_df):
     """Test that bin produces a string (object dtype) Series."""
     t = BinTransformation("bin_a", columns=["a"], parameters={"n_bins": 2})
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "bin_a"
     assert result.dtype == object
@@ -21,7 +33,7 @@ def test_bin_transformation_output_type(sample_df):
 def test_bin_transformation_n_unique_equals_n_bins(sample_df):
     """Test that the number of unique bin labels equals n_bins."""
     t = BinTransformation("bin_a", columns=["a"], parameters={"n_bins": 2})
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert len(result.unique()) == 2
 
@@ -29,7 +41,7 @@ def test_bin_transformation_n_unique_equals_n_bins(sample_df):
 def test_bin_transformation_all_values_are_strings(sample_df):
     """Test that all output values are strings."""
     t = BinTransformation("bin_a", columns=["a"], parameters={"n_bins": 2})
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert all(isinstance(v, str) for v in result)
 
@@ -37,7 +49,7 @@ def test_bin_transformation_all_values_are_strings(sample_df):
 def test_bin_transformation_four_bins(sample_df):
     """Test binning with n_bins=4 produces 4 unique labels."""
     t = BinTransformation("bin_b", columns=["a"], parameters={"n_bins": 4})
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "bin_b"
     assert len(result.unique()) == 4
@@ -51,7 +63,7 @@ def test_bin_transformation_four_bins(sample_df):
 def test_bin_transformation_bin_edges_output_type(sample_df):
     """Test that bin with custom edges produces a string (object dtype) Series."""
     t = BinTransformation("bin_a", columns=["a"], parameters={"bin_edges": [0, 25, 50]})
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "bin_a"
     assert result.dtype == object
@@ -61,7 +73,7 @@ def test_bin_transformation_bin_edges_correct_labels(sample_df):
     """Test that bin with custom edges assigns values to the correct intervals."""
     # a = [10, 20, 30, 40]; edges [0, 25, 50] → two bins: (0, 25] and (25, 50]
     t = BinTransformation("bin_a", columns=["a"], parameters={"bin_edges": [0, 25, 50]})
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert len(result.unique()) == 2
     # 10 and 20 fall in the lower bin, 30 and 40 in the upper bin
@@ -73,7 +85,7 @@ def test_bin_transformation_bin_edges_correct_labels(sample_df):
 def test_bin_transformation_bin_edges_all_values_are_strings(sample_df):
     """Test that custom bin edges produce string labels."""
     t = BinTransformation("bin_a", columns=["a"], parameters={"bin_edges": [0, 25, 50]})
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert all(isinstance(v, str) for v in result)
 
@@ -135,3 +147,68 @@ def test_bin_edges_too_few():
     """Test that bin_edges with fewer than 2 values raises ValueError."""
     with pytest.raises(ValueError, match="'bin_edges' must contain at least 2 values"):
         BinTransformation("bin_a", columns=["a"], parameters={"bin_edges": [10.0]})
+
+
+# =============================================================================
+# Test: BinTransformation — stateful fit/transform
+# =============================================================================
+
+
+def test_bin_edges_none_before_fit(train_df):
+    """bin_edges_ is None before fit() is called."""
+    t = BinTransformation("binned", columns=["value"], parameters={"n_bins": 4})
+    assert t.bin_edges_ is None
+
+
+def test_bin_n_bins_fit_stores_edges(train_df):
+    """fit() with n_bins computes and stores bin edges (n_bins + 1 values)."""
+    t = BinTransformation("binned", columns=["value"], parameters={"n_bins": 4})
+    t.fit(train_df)
+    assert t.bin_edges_ is not None
+    assert len(t.bin_edges_) == 5  # n_bins + 1 edges
+
+
+def test_bin_custom_edges_fit_stores_edges(train_df):
+    """fit() with bin_edges stores the provided edges as-is."""
+    edges = [0.0, 10.0, 30.0, 50.0]
+    t = BinTransformation("binned", columns=["value"], parameters={"bin_edges": edges})
+    t.fit(train_df)
+    assert t.bin_edges_ == edges
+
+
+def test_bin_fit_returns_self(train_df):
+    """fit() returns self for chaining."""
+    t = BinTransformation("binned", columns=["value"], parameters={"n_bins": 2})
+    assert t.fit(train_df) is t
+
+
+def test_bin_transform_reuses_fitted_edges(train_df, test_df):
+    """Edges learned from train_df are reused for test_df (not recomputed)."""
+    t = BinTransformation("binned", columns=["value"], parameters={"n_bins": 2})
+    t.fit(train_df)
+    edges_after_fit = list(t.bin_edges_)
+
+    t.transform(test_df)  # must not change bin_edges_
+    assert t.bin_edges_ == edges_after_fit
+
+
+def test_bin_fit_transform_produces_output(train_df, test_df):
+    """fit() on train and transform() on test both return a correctly named Series."""
+    t = BinTransformation("binned", columns=["value"], parameters={"n_bins": 2})
+    t.fit(train_df)
+
+    result_train = t.transform(train_df)
+    result_test = t.transform(test_df)
+
+    assert result_train.name == "binned"
+    assert result_test.name == "binned"
+    assert len(result_train) == len(train_df)
+    assert len(result_test) == len(test_df)
+
+
+def test_bin_fit_transform(train_df):
+    """fit_transform() works as a single-call alternative to fit().transform()."""
+    t = BinTransformation("binned", columns=["value"], parameters={"n_bins": 3})
+    result = t.fit_transform(train_df)
+    assert result.name == "binned"
+    assert len(result) == len(train_df)

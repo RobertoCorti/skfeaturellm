@@ -178,3 +178,7 @@ cython_debug/
 
 # Local planning docs
 ROADMAP.md
+
+# Generated artifacts from example notebooks
+examples/transformer.json
+examples/engineer.json

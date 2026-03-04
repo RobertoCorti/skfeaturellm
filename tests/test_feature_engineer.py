@@ -1,6 +1,5 @@
 """Tests for the LLMFeatureEngineer class."""
 
-import json
 import warnings
 from unittest.mock import Mock
 
@@ -321,82 +320,6 @@ def test_evaluate_features_is_transformed_true(
     transform_spy.assert_not_called()
 
 
-def test_save_without_fit_raises(mocker, tmp_path):
-    """Test that save() raises ValueError if fit has not been called."""
-    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
-    engineer = LLMFeatureEngineer(
-        problem_type="classification", model_name="gpt-4o", model_provider="openai"
-    )
-    with pytest.raises(ValueError, match="fit must be called before save"):
-        engineer.save(str(tmp_path / "features.json"))
-
-
-def test_save_and_load_roundtrip(mocker, tmp_path, sample_data_frame):
-    """Test that save() and load() round-trip generated_features_ideas correctly."""
-    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
-
-    idea = FeatureEngineeringIdea(
-        type="mul",
-        feature_name="age_double",
-        columns=["age"],
-        parameters={"constant": 2.0},
-        description="Double the age",
-    )
-    engineer = LLMFeatureEngineer(
-        problem_type="classification",
-        model_name="gpt-4o",
-        target_col="label",
-        max_features=5,
-        feature_prefix="feat_",
-    )
-    engineer.generated_features_ideas = [idea]
-
-    save_path = str(tmp_path / "features.json")
-    engineer.save(save_path)
-
-    # Verify file contents
-    with open(save_path, encoding="utf-8") as f:
-        raw = json.load(f)
-    assert raw["params"]["problem_type"] == "classification"
-    assert raw["params"]["feature_prefix"] == "feat_"
-    assert len(raw["generated_features_ideas"]) == 1
-
-    # Restore and verify
-    loaded = LLMFeatureEngineer.load(save_path)
-    assert loaded.problem_type.value == "classification"
-    assert loaded.feature_prefix == "feat_"
-    assert loaded.target_col == "label"
-    assert loaded.max_features == 5
-    assert len(loaded.generated_features_ideas) == 1
-    assert loaded.generated_features_ideas[0].feature_name == "age_double"
-
-
-def test_load_allows_transform_without_fit(mocker, tmp_path, sample_data_frame):
-    """Test that a loaded engineer can call transform() without fit()."""
-    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
-
-    idea = FeatureEngineeringIdea(
-        type="mul",
-        feature_name="age_double",
-        columns=["age"],
-        parameters={"constant": 2.0},
-        description="Double the age",
-    )
-    engineer = LLMFeatureEngineer(
-        problem_type="regression", model_name="gpt-4o", feature_prefix="llm_feat_"
-    )
-    engineer.generated_features_ideas = [idea]
-
-    save_path = str(tmp_path / "features.json")
-    engineer.save(save_path)
-
-    loaded = LLMFeatureEngineer.load(save_path)
-    result = loaded.transform(sample_data_frame)
-
-    assert "llm_feat_age_double" in result.columns
-    assert result["llm_feat_age_double"].tolist() == [50.0, 60.0]
-
-
 def test_fit_passes_dataset_statistics_to_llm(
     mocker, sample_data_frame
 ):  # pylint: disable=redefined-outer-name
@@ -437,3 +360,112 @@ def test_fit_without_y_dataset_statistics_not_provided(
     call_kwargs = mock_generate.call_args.kwargs
     assert "dataset_statistics" in call_kwargs
     assert "Not provided." in call_kwargs["dataset_statistics"]
+
+
+# =============================================================================
+# Test: to_transformer()
+# =============================================================================
+
+
+def test_to_transformer_before_fit_raises(mocker):
+    """to_transformer() raises ValueError if fit() has not been called."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    engineer = LLMFeatureEngineer(problem_type="classification")
+    with pytest.raises(ValueError, match="fit must be called before to_transformer"):
+        engineer.to_transformer()
+
+
+def test_to_transformer_returns_feature_engineering_transformer(
+    mocker, sample_data_frame
+):
+    """to_transformer() returns a FeatureEngineeringTransformer built from generated features."""
+    from skfeaturellm.feature_engineering_transformer import (
+        FeatureEngineeringTransformer,
+    )
+
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    idea = FeatureEngineeringIdea(
+        type="mul",
+        feature_name="age_double",
+        columns=["age"],
+        parameters={"constant": 2.0},
+        description="Double the age",
+    )
+    mock_ideas = Mock()
+    mock_ideas.ideas = [idea]
+    mocker.patch(
+        "skfeaturellm.llm_interface.LLMInterface.generate_engineered_features",
+        return_value=mock_ideas,
+    )
+
+    engineer = LLMFeatureEngineer(problem_type="classification")
+    engineer.fit(sample_data_frame)
+    engineer.transform(sample_data_frame)
+
+    transformer = engineer.to_transformer()
+
+    assert isinstance(transformer, FeatureEngineeringTransformer)
+    assert len(transformer.transformations) == 1
+    assert transformer.transformations[0]["feature_name"] == "llm_feat_age_double"
+
+
+def test_to_transformer_filter_by_prefixed_name(mocker, sample_data_frame):
+    """to_transformer(features=[...]) filters by prefixed feature name."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    ideas = [
+        FeatureEngineeringIdea(
+            type="mul",
+            feature_name="age_double",
+            columns=["age"],
+            parameters={"constant": 2.0},
+            description="Double the age",
+        ),
+        FeatureEngineeringIdea(
+            type="add",
+            feature_name="income_plus_age",
+            columns=["income", "age"],
+            description="Sum of income and age",
+        ),
+    ]
+    mock_ideas = Mock()
+    mock_ideas.ideas = ideas
+    mocker.patch(
+        "skfeaturellm.llm_interface.LLMInterface.generate_engineered_features",
+        return_value=mock_ideas,
+    )
+
+    engineer = LLMFeatureEngineer(problem_type="classification")
+    engineer.fit(sample_data_frame)
+    engineer.transform(sample_data_frame)
+
+    transformer = engineer.to_transformer(features=["llm_feat_age_double"])
+
+    assert len(transformer.transformations) == 1
+    assert transformer.transformations[0]["feature_name"] == "llm_feat_age_double"
+
+
+def test_to_transformer_filter_by_unprefixed_name(mocker, sample_data_frame):
+    """to_transformer() also accepts names without the feature_prefix."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    idea = FeatureEngineeringIdea(
+        type="mul",
+        feature_name="age_double",
+        columns=["age"],
+        parameters={"constant": 2.0},
+        description="Double the age",
+    )
+    mock_ideas = Mock()
+    mock_ideas.ideas = [idea]
+    mocker.patch(
+        "skfeaturellm.llm_interface.LLMInterface.generate_engineered_features",
+        return_value=mock_ideas,
+    )
+
+    engineer = LLMFeatureEngineer(problem_type="classification")
+    engineer.fit(sample_data_frame)
+    engineer.transform(sample_data_frame)
+
+    transformer = engineer.to_transformer(features=["age_double"])
+
+    assert len(transformer.transformations) == 1
+    assert transformer.transformations[0]["feature_name"] == "llm_feat_age_double"

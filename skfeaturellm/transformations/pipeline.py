@@ -1,5 +1,5 @@
 """
-Transformation executor for applying feature transformations to DataFrames.
+Transformation pipeline for applying feature transformations to DataFrames.
 """
 
 import json
@@ -116,7 +116,7 @@ def get_all_operation_types() -> Set[str]:
     return set(_TRANSFORMATION_REGISTRY.keys())
 
 
-class TransformationExecutor:
+class TransformationPipeline:
     """
     Executes a set of transformations against a DataFrame.
 
@@ -136,22 +136,22 @@ class TransformationExecutor:
     Direct instantiation:
 
     >>> from skfeaturellm.transformations import AddTransformation, DivTransformation
-    >>> executor = TransformationExecutor(transformations=[
+    >>> executor = TransformationPipeline(transformations=[
     ...     DivTransformation("ratio", "a", right_column="b"),
     ...     AddTransformation("sum", "a", right_column="b"),
     ... ])
-    >>> result_df = executor.execute(df)
+    >>> result_df = executor.fit(df).transform(df)
 
     From JSON file:
 
-    >>> executor = TransformationExecutor.from_json("transformations.json")
-    >>> result_df = executor.execute(df)
+    >>> executor = TransformationPipeline.from_json("transformations.json")
+    >>> result_df = executor.fit(df).transform(df)
 
     From dict (e.g., LLM output):
 
     >>> config = {"transformations": [{"type": "add", "feature_name": "sum", ...}]}
-    >>> executor = TransformationExecutor.from_dict(config)
-    >>> result_df = executor.execute(df)
+    >>> executor = TransformationPipeline.from_dict(config)
+    >>> result_df = executor.fit(df).transform(df)
     """
 
     def __init__(
@@ -167,7 +167,7 @@ class TransformationExecutor:
         cls,
         config: Dict[str, Any],
         raise_on_error: bool = True,
-    ) -> "TransformationExecutor":
+    ) -> "TransformationPipeline":
         """
         Create an executor from a dictionary configuration.
 
@@ -181,7 +181,7 @@ class TransformationExecutor:
 
         Returns
         -------
-        TransformationExecutor
+        TransformationPipeline
             Configured executor instance
 
         Raises
@@ -206,7 +206,7 @@ class TransformationExecutor:
         cls,
         path: Union[str, Path],
         raise_on_error: bool = True,
-    ) -> "TransformationExecutor":
+    ) -> "TransformationPipeline":
         """
         Create an executor from a JSON configuration file.
 
@@ -219,7 +219,7 @@ class TransformationExecutor:
 
         Returns
         -------
-        TransformationExecutor
+        TransformationPipeline
             Configured executor instance
         """
         path = Path(path)
@@ -232,7 +232,7 @@ class TransformationExecutor:
         cls,
         path: Union[str, Path],
         raise_on_error: bool = True,
-    ) -> "TransformationExecutor":
+    ) -> "TransformationPipeline":
         """
         Create an executor from a YAML configuration file.
 
@@ -245,7 +245,7 @@ class TransformationExecutor:
 
         Returns
         -------
-        TransformationExecutor
+        TransformationPipeline
             Configured executor instance
 
         Raises
@@ -311,46 +311,55 @@ class TransformationExecutor:
         except ValueError as e:
             raise TransformationParseError(e)
 
-    def execute(
-        self,
-        df: pd.DataFrame,
-        transformations: Optional[List[BaseTransformation]] = None,
-    ) -> pd.DataFrame:
+    def fit(self, df: pd.DataFrame) -> "TransformationPipeline":
         """
-        Execute all transformations and return a DataFrame with new features.
+        Fit all transformations to training data.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The training DataFrame
+
+        Returns
+        -------
+        TransformationPipeline
+            self
+        """
+        for transformation in self.transformations:
+            try:
+                transformation.fit(df)
+            except TransformationError as e:
+                if self.raise_on_error:
+                    raise
+                warnings.warn(
+                    f"Fitting transformation '{transformation.feature_name}' failed: {e}. "
+                    f"Skipping."
+                )
+        return self
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Apply all fitted transformations and return a DataFrame with new features.
 
         Parameters
         ----------
         df : pd.DataFrame
             The input DataFrame
-        transformations : List[BaseTransformation], optional
-            List of transformations to execute. If not provided, uses
-            self.transformations.
 
         Returns
         -------
         pd.DataFrame
             A copy of the input DataFrame with new feature columns added
-
-        Raises
-        ------
-        TransformationError
-            If a transformation fails and raise_on_error is True
         """
-        # Use provided transformations or fall back to instance transformations
-        transforms = (
-            transformations if transformations is not None else self.transformations
-        )
-
-        if not transforms:
-            warnings.warn("No transformations to execute.")
+        if not self.transformations:
+            warnings.warn("No transformations to apply.")
             return df.copy()
 
         result_df = df.copy()
 
-        for transformation in transforms:
+        for transformation in self.transformations:
             try:
-                feature_series = transformation.execute(df)
+                feature_series = transformation.transform(df)
                 result_df[transformation.feature_name] = feature_series
             except TransformationError as e:
                 if self.raise_on_error:

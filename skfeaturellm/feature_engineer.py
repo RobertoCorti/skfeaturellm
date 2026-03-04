@@ -12,7 +12,7 @@ from skfeaturellm.feature_evaluation import FeatureEvaluationResult, FeatureEval
 from skfeaturellm.feature_transformer import FeatureTransformer
 from skfeaturellm.llm_interface import LLMInterface
 from skfeaturellm.schemas import FeatureEngineeringIdea
-from skfeaturellm.transformations import TransformationExecutor
+from skfeaturellm.transformations import TransformationPipeline
 from skfeaturellm.types import ProblemType
 
 
@@ -124,7 +124,7 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         executor_config = self._build_executor_config(self.generated_features_ideas)
 
         # Create executor with raise_on_error=False to skip failed transformations
-        executor = TransformationExecutor.from_dict(
+        executor = TransformationPipeline.from_dict(
             executor_config, raise_on_error=False
         )
 
@@ -204,7 +204,7 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         Returns
         -------
         Dict
-            Configuration dict for TransformationExecutor.from_dict()
+            Configuration dict for TransformationPipeline.from_dict()
         """
         transformations = []
         for idea in ideas:

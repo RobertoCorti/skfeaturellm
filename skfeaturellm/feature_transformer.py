@@ -19,7 +19,7 @@ import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.utils.validation import check_is_fitted
 
-from skfeaturellm.transformations import TransformationExecutor
+from skfeaturellm.transformations import TransformationPipeline
 
 
 class FeatureTransformer(BaseEstimator, TransformerMixin):
@@ -35,7 +35,7 @@ class FeatureTransformer(BaseEstimator, TransformerMixin):
     ----------
     transformations : list of dict
         List of transformation config dicts, each with at minimum a "type" key.
-        Same format accepted by TransformationExecutor.from_dict().
+        Same format accepted by TransformationPipeline.from_dict().
     feature_prefix : str, default "llm_feat_"
         Prefix applied to generated feature names.
     raise_on_error : bool, default False
@@ -43,7 +43,7 @@ class FeatureTransformer(BaseEstimator, TransformerMixin):
 
     Attributes
     ----------
-    executor_ : TransformationExecutor
+    executor_ : TransformationPipeline
         Fitted executor (available after fit()).
     feature_names_in_ : list of str
         Column names seen during fit().
@@ -84,7 +84,7 @@ class FeatureTransformer(BaseEstimator, TransformerMixin):
         self
         """
         self.feature_names_in_ = list(X.columns)
-        executor = TransformationExecutor.from_dict(
+        executor = TransformationPipeline.from_dict(
             {"transformations": self.transformations},
             raise_on_error=self.raise_on_error,
         )

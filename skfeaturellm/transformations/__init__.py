@@ -22,9 +22,9 @@ from skfeaturellm.transformations.binary import (
     MulTransformation,
     SubTransformation,
 )
-from skfeaturellm.transformations.executor import (
-    TransformationExecutor,
+from skfeaturellm.transformations.pipeline import (
     TransformationParseError,
+    TransformationPipeline,
     get_all_operation_types,
     get_binary_operation_types,
     get_registered_transformations,
@@ -52,7 +52,7 @@ __all__ = [
     "TransformationError",
     "ColumnNotFoundError",
     # Executor
-    "TransformationExecutor",
+    "TransformationPipeline",
     "TransformationParseError",
     "register_transformation",
     "get_registered_transformations",

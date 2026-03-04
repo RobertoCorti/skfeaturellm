@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Union
 import pandas as pd
 
 from skfeaturellm.transformations.base import TransformationError
-from skfeaturellm.transformations.executor import register_transformation
+from skfeaturellm.transformations.pipeline import register_transformation
 from skfeaturellm.transformations.unary.arithmetic import UnaryTransformation
 
 

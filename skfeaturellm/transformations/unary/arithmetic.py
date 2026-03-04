@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from skfeaturellm.transformations.base import BaseTransformation, TransformationError
-from skfeaturellm.transformations.executor import register_transformation
+from skfeaturellm.transformations.pipeline import register_transformation
 
 
 class InvalidValueError(TransformationError):

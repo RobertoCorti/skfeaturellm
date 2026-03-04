@@ -1,5 +1,5 @@
 """
-Transformation executor for applying feature transformations to DataFrames.
+Transformation pipeline for applying feature transformations to DataFrames.
 """
 
 import json
@@ -116,7 +116,7 @@ def get_all_operation_types() -> Set[str]:
     return set(_TRANSFORMATION_REGISTRY.keys())
 
 
-class TransformationExecutor:
+class TransformationPipeline:
     """
     Executes a set of transformations against a DataFrame.
 
@@ -136,7 +136,7 @@ class TransformationExecutor:
     Direct instantiation:
 
     >>> from skfeaturellm.transformations import AddTransformation, DivTransformation
-    >>> executor = TransformationExecutor(transformations=[
+    >>> executor = TransformationPipeline(transformations=[
     ...     DivTransformation("ratio", "a", right_column="b"),
     ...     AddTransformation("sum", "a", right_column="b"),
     ... ])
@@ -144,13 +144,13 @@ class TransformationExecutor:
 
     From JSON file:
 
-    >>> executor = TransformationExecutor.from_json("transformations.json")
+    >>> executor = TransformationPipeline.from_json("transformations.json")
     >>> result_df = executor.fit(df).transform(df)
 
     From dict (e.g., LLM output):
 
     >>> config = {"transformations": [{"type": "add", "feature_name": "sum", ...}]}
-    >>> executor = TransformationExecutor.from_dict(config)
+    >>> executor = TransformationPipeline.from_dict(config)
     >>> result_df = executor.fit(df).transform(df)
     """
 
@@ -167,7 +167,7 @@ class TransformationExecutor:
         cls,
         config: Dict[str, Any],
         raise_on_error: bool = True,
-    ) -> "TransformationExecutor":
+    ) -> "TransformationPipeline":
         """
         Create an executor from a dictionary configuration.
 
@@ -181,7 +181,7 @@ class TransformationExecutor:
 
         Returns
         -------
-        TransformationExecutor
+        TransformationPipeline
             Configured executor instance
 
         Raises
@@ -206,7 +206,7 @@ class TransformationExecutor:
         cls,
         path: Union[str, Path],
         raise_on_error: bool = True,
-    ) -> "TransformationExecutor":
+    ) -> "TransformationPipeline":
         """
         Create an executor from a JSON configuration file.
 
@@ -219,7 +219,7 @@ class TransformationExecutor:
 
         Returns
         -------
-        TransformationExecutor
+        TransformationPipeline
             Configured executor instance
         """
         path = Path(path)
@@ -232,7 +232,7 @@ class TransformationExecutor:
         cls,
         path: Union[str, Path],
         raise_on_error: bool = True,
-    ) -> "TransformationExecutor":
+    ) -> "TransformationPipeline":
         """
         Create an executor from a YAML configuration file.
 
@@ -245,7 +245,7 @@ class TransformationExecutor:
 
         Returns
         -------
-        TransformationExecutor
+        TransformationPipeline
             Configured executor instance
 
         Raises
@@ -311,7 +311,7 @@ class TransformationExecutor:
         except ValueError as e:
             raise TransformationParseError(e)
 
-    def fit(self, df: pd.DataFrame) -> "TransformationExecutor":
+    def fit(self, df: pd.DataFrame) -> "TransformationPipeline":
         """
         Fit all transformations to training data.
 
@@ -322,7 +322,7 @@ class TransformationExecutor:
 
         Returns
         -------
-        TransformationExecutor
+        TransformationPipeline
             self
         """
         for transformation in self.transformations:

@@ -215,7 +215,7 @@ class FeatureEngineeringIdea(BaseModel):
 
     def to_executor_dict(self) -> dict:
         """
-        Convert to a dictionary format compatible with TransformationExecutor.
+        Convert to a dictionary format compatible with TransformationPipeline.
 
         Returns
         -------
@@ -248,7 +248,7 @@ class FeatureEngineeringIdeas(BaseModel):
 
     def to_executor_config(self) -> dict:
         """
-        Convert to a configuration dict compatible with TransformationExecutor.from_dict().
+        Convert to a configuration dict compatible with TransformationPipeline.from_dict().
 
         Returns
         -------

@@ -120,21 +120,61 @@ Feature Evaluation and Selection
     X_test_eng = engineer.transform(X_test)[base_cols + good_features]
 
 
-Saving and Loading
-------------------
-Persist the fitted engineer after the LLM call so you can apply the same transformations to new data later without re-running the model.
+Production Pipeline
+--------------------
+After evaluating and selecting features, export them to a ``FeatureEngineeringTransformer`` for use in a scikit-learn ``Pipeline``. This separates the LLM exploration phase from deterministic production inference.
 
 .. code-block:: python
 
-    # Save after fitting
-    engineer.save("engineer.json")
+    from sklearn.pipeline import Pipeline
+    from xgboost import XGBClassifier
+    from skfeaturellm import LLMFeatureEngineer, FeatureEngineeringTransformer
+
+    # --- Exploration: fit and evaluate ---
+    engineer = LLMFeatureEngineer(
+        problem_type="classification",
+        model_name="gpt-4o",
+        max_features=10,
+    )
+    engineer.fit(X_train, y=y_train, feature_descriptions=feature_descriptions)
+    engineer.transform(X_train)  # populates generated_features
+
+    # Evaluate and select
+    eval_result = engineer.evaluate_features(X_train, y_train)
+    good_features = (
+        eval_result.summary()[eval_result.summary()["mutual_information"] > 0]
+        .index.tolist()
+    )
+
+    # --- Production: export to a deterministic transformer ---
+    transformer = engineer.to_transformer(features=good_features)
+
+    pipeline = Pipeline([
+        ("features", transformer),
+        ("model", XGBClassifier()),
+    ])
+    pipeline.fit(X_train, y_train)
+    y_pred = pipeline.predict(X_test)
+
+
+Saving and Loading
+------------------
+Serialize the ``FeatureEngineeringTransformer`` to JSON so the LLM is never called again. Only the transformation configs are stored — call ``fit()`` to re-learn stateful parameters (e.g., bin edges) on any data split.
+
+.. code-block:: python
+
+    from skfeaturellm import FeatureEngineeringTransformer
+
+    # Save transformation configs
+    transformer.save("transformer.json")
 
     # Restore in a later session or on a different machine
-    from skfeaturellm import LLMFeatureEngineer
-    loaded = LLMFeatureEngineer.load("engineer.json")
+    loaded = FeatureEngineeringTransformer.load("transformer.json")
 
-    # Apply to new data — no LLM call required
-    X_new_transformed = loaded.transform(X_new)
+    # Fit on training data and apply — no LLM call required
+    pipeline = Pipeline([("features", loaded), ("model", XGBClassifier())])
+    pipeline.fit(X_train, y_train)
+    y_pred = pipeline.predict(X_test)
 
 
 Notebook Tutorial
@@ -143,4 +183,4 @@ A complete end-to-end tutorial using the `Bank Loan Credit Risk dataset <https:/
 
 - `01_SKFeatureLLM_Tutorial.ipynb <https://github.com/RobertoCorti/skfeaturellm/blob/main/examples/01_SKFeatureLLM_Tutorial.ipynb>`_
 
-The notebook covers: data loading with ``kagglehub``, baseline XGBoost, LLM feature engineering with dataset statistics injection, per-feature evaluation, feature selection, and engineer persistence with ``save()`` / ``load()``.
+The notebook covers: data loading with ``kagglehub``, baseline XGBoost, LLM feature engineering with dataset statistics injection, per-feature evaluation, feature selection, and production deployment with ``FeatureEngineeringTransformer`` inside a scikit-learn ``Pipeline``.

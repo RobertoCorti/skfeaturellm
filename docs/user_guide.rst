@@ -14,11 +14,10 @@ Workflow
 1. **Fit** (on training data only): Provide feature descriptions and optionally target labels; the LLM generates feature ideas enriched by dataset statistics.
 2. **Transform**: Execute the generated transformations on train and test sets.
 3. **Evaluate** (optional): Score each generated feature with mutual information or correlation to select only the beneficial ones.
-4. **Save / Load** (optional): Persist the fitted engineer to disk to reuse on new data without hitting the LLM again.
+4. **Export to Production** (optional): Convert the selected features into a ``FeatureEngineeringTransformer`` for use inside scikit-learn pipelines, cross-validation, or serialized deployments.
 
 .. note::
    Always call ``fit()`` on **training data only** to prevent data leakage.
-   ``transform()`` is stateless and can be applied to any split afterwards.
 
 
 LLMFeatureEngineer Parameters
@@ -75,25 +74,53 @@ Supported transformations:
 Parameters: ``n_bins`` (int, required) and optionally ``bin_edges`` (list of floats for custom boundaries).
 
 
-Saving and Reusing
-------------------
-After calling ``fit()``, the engineer can be serialized to a JSON file with ``save()``. The file stores both the constructor parameters and all generated feature ideas. A loaded engineer can call ``transform()`` immediately, without re-running the LLM.
+Production Pipeline with FeatureEngineeringTransformer
+------------------------------------------------------
+``LLMFeatureEngineer`` is designed for **experimentation** — it calls the LLM during ``fit()``. For production, use ``FeatureEngineeringTransformer``: a fully deterministic scikit-learn transformer that holds only the transformation configs, with no LLM dependency.
+
+After evaluating and selecting features, call ``to_transformer()`` to export them:
 
 .. code-block:: python
 
-    # Save after fitting
-    engineer.save("engineer.json")
+    from skfeaturellm import LLMFeatureEngineer, FeatureEngineeringTransformer
 
-    # Restore in a later session or on a different machine
-    loaded = LLMFeatureEngineer.load("engineer.json")
+    # --- Exploration phase ---
+    engineer = LLMFeatureEngineer(problem_type="classification", model_name="gpt-4o")
+    engineer.fit(X_train, y=y_train)
+    engineer.transform(X_train)  # populates engineer.generated_features
 
-    # Apply to new data — no LLM call required
-    X_new_transformed = loaded.transform(X_new)
+    # Export selected features (or all of them) to a production transformer
+    transformer = engineer.to_transformer()
 
-The JSON file contains:
+    # Optionally filter to a specific subset
+    transformer = engineer.to_transformer(features=["llm_feat_log_income", "llm_feat_income_to_loan"])
 
-- ``params``: constructor arguments (``problem_type``, ``model_name``, ``feature_prefix``, etc.)
-- ``generated_features_ideas``: list of serialized :class:`~skfeaturellm.schemas.FeatureEngineeringIdea` objects
+The transformer is a standard scikit-learn ``TransformerMixin`` and slots directly into a ``Pipeline``:
+
+.. code-block:: python
+
+    from sklearn.pipeline import Pipeline
+    from xgboost import XGBClassifier
+
+    pipeline = Pipeline([
+        ("features", transformer),
+        ("model", XGBClassifier()),
+    ])
+
+    pipeline.fit(X_train, y_train)
+    y_pred = pipeline.predict(X_test)
+
+Serialize the transformer to JSON so the LLM is never called again in production:
+
+.. code-block:: python
+
+    # Save — only stores transformation configs, not fitted state
+    transformer.save("transformer.json")
+
+    # Load and re-fit on any new data
+    loaded = FeatureEngineeringTransformer.load("transformer.json")
+    pipeline = Pipeline([("features", loaded), ("model", XGBClassifier())])
+    pipeline.fit(X_train, y_train)
 
 
 API Keys and Provider Configuration

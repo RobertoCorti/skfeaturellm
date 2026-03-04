@@ -53,8 +53,8 @@ class UnaryTransformation(BaseTransformation):
     def get_required_columns(self) -> Set[str]:
         return {self._column}
 
-    def execute(self, df: pd.DataFrame) -> pd.Series:
-        """Execute the transformation."""
+    def transform(self, df: pd.DataFrame) -> pd.Series:
+        """Apply the transformation."""
         self.validate_columns(df)
         values = df[self._column]
         result = self._apply_operation(values)

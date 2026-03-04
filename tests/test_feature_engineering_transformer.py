@@ -1,4 +1,4 @@
-"""Tests for FeatureTransformer sklearn compatibility."""
+"""Tests for FeatureEngineeringTransformer sklearn compatibility."""
 
 import pandas as pd
 import pytest
@@ -8,7 +8,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils.validation import check_is_fitted
 
-from skfeaturellm.feature_transformer import FeatureTransformer
+from skfeaturellm.feature_engineering_transformer import FeatureEngineeringTransformer
 
 
 @pytest.fixture
@@ -31,7 +31,7 @@ def configs():
 
 def test_fit_transform(sample_df, configs):
     """fit/transform produces the expected feature columns."""
-    transformer = FeatureTransformer(transformations=configs)
+    transformer = FeatureEngineeringTransformer(transformations=configs)
     result = transformer.fit(sample_df).transform(sample_df)
 
     assert "llm_feat_sum" in result.columns
@@ -42,20 +42,20 @@ def test_fit_transform(sample_df, configs):
 
 def test_fit_returns_self(sample_df, configs):
     """fit() returns self for chaining."""
-    transformer = FeatureTransformer(transformations=configs)
+    transformer = FeatureEngineeringTransformer(transformations=configs)
     assert transformer.fit(sample_df) is transformer
 
 
 def test_transform_before_fit_raises(sample_df, configs):
     """transform() raises NotFittedError if fit() was not called."""
-    transformer = FeatureTransformer(transformations=configs)
+    transformer = FeatureEngineeringTransformer(transformations=configs)
     with pytest.raises(NotFittedError):
         transformer.transform(sample_df)
 
 
 def test_original_columns_preserved(sample_df, configs):
     """transform() returns a DataFrame that includes the original columns."""
-    transformer = FeatureTransformer(transformations=configs)
+    transformer = FeatureEngineeringTransformer(transformations=configs)
     result = transformer.fit(sample_df).transform(sample_df)
 
     assert "a" in result.columns
@@ -69,7 +69,7 @@ def test_original_columns_preserved(sample_df, configs):
 
 def test_get_params(configs):
     """get_params() returns the constructor parameters."""
-    transformer = FeatureTransformer(
+    transformer = FeatureEngineeringTransformer(
         transformations=configs, feature_prefix="p_", raise_on_error=True
     )
     params = transformer.get_params()
@@ -81,7 +81,7 @@ def test_get_params(configs):
 
 def test_set_params(configs):
     """set_params() updates parameters correctly."""
-    transformer = FeatureTransformer(transformations=configs)
+    transformer = FeatureEngineeringTransformer(transformations=configs)
     transformer.set_params(feature_prefix="new_", raise_on_error=True)
 
     assert transformer.feature_prefix == "new_"
@@ -90,7 +90,9 @@ def test_set_params(configs):
 
 def test_clone(sample_df, configs):
     """clone() produces an unfitted copy with the same constructor params."""
-    transformer = FeatureTransformer(transformations=configs, feature_prefix="p_")
+    transformer = FeatureEngineeringTransformer(
+        transformations=configs, feature_prefix="p_"
+    )
     transformer.fit(sample_df)
 
     cloned = clone(transformer)
@@ -106,7 +108,7 @@ def test_clone(sample_df, configs):
 
 def test_get_feature_names_out(sample_df, configs):
     """get_feature_names_out() returns original columns followed by generated ones."""
-    transformer = FeatureTransformer(transformations=configs)
+    transformer = FeatureEngineeringTransformer(transformations=configs)
     transformer.fit(sample_df)
 
     names = list(transformer.get_feature_names_out())
@@ -116,7 +118,7 @@ def test_get_feature_names_out(sample_df, configs):
 
 def test_get_feature_names_out_before_fit_raises(configs):
     """get_feature_names_out() raises NotFittedError before fit()."""
-    transformer = FeatureTransformer(transformations=configs)
+    transformer = FeatureEngineeringTransformer(transformations=configs)
     with pytest.raises(NotFittedError):
         transformer.get_feature_names_out()
 
@@ -127,10 +129,10 @@ def test_get_feature_names_out_before_fit_raises(configs):
 
 
 def test_in_pipeline(sample_df, configs):
-    """FeatureTransformer works inside a sklearn Pipeline."""
+    """FeatureEngineeringTransformer works inside a sklearn Pipeline."""
     pipe = Pipeline(
         [
-            ("features", FeatureTransformer(transformations=configs)),
+            ("features", FeatureEngineeringTransformer(transformations=configs)),
             ("scaler", StandardScaler()),
         ]
     )
@@ -148,12 +150,12 @@ def test_in_pipeline(sample_df, configs):
 def test_save_and_load_roundtrip(tmp_path, configs):
     """save() and load() roundtrip preserves all constructor params."""
     path = tmp_path / "transformer.json"
-    transformer = FeatureTransformer(
+    transformer = FeatureEngineeringTransformer(
         transformations=configs, feature_prefix="p_", raise_on_error=True
     )
     transformer.save(path)
 
-    loaded = FeatureTransformer.load(path)
+    loaded = FeatureEngineeringTransformer.load(path)
 
     assert loaded.transformations == configs
     assert loaded.feature_prefix == "p_"
@@ -163,9 +165,11 @@ def test_save_and_load_roundtrip(tmp_path, configs):
 def test_load_and_fit_transform(tmp_path, sample_df, configs):
     """A transformer loaded from JSON can be fit and applied to data."""
     path = tmp_path / "transformer.json"
-    FeatureTransformer(transformations=configs).save(path)
+    FeatureEngineeringTransformer(transformations=configs).save(path)
 
-    result = FeatureTransformer.load(path).fit(sample_df).transform(sample_df)
+    result = (
+        FeatureEngineeringTransformer.load(path).fit(sample_df).transform(sample_df)
+    )
 
     assert "llm_feat_sum" in result.columns
     assert "llm_feat_product" in result.columns
@@ -176,7 +180,9 @@ def test_save_creates_valid_json(tmp_path, configs):
     import json
 
     path = tmp_path / "transformer.json"
-    FeatureTransformer(transformations=configs, feature_prefix="x_").save(path)
+    FeatureEngineeringTransformer(transformations=configs, feature_prefix="x_").save(
+        path
+    )
 
     raw = json.loads(path.read_text())
     assert raw["feature_prefix"] == "x_"

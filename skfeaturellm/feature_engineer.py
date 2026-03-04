@@ -8,8 +8,8 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 
+from skfeaturellm.feature_engineering_transformer import FeatureEngineeringTransformer
 from skfeaturellm.feature_evaluation import FeatureEvaluationResult, FeatureEvaluator
-from skfeaturellm.feature_transformer import FeatureTransformer
 from skfeaturellm.llm_interface import LLMInterface
 from skfeaturellm.schemas import FeatureEngineeringIdea
 from skfeaturellm.transformations import TransformationPipeline
@@ -148,9 +148,9 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
 
     def to_transformer(
         self, features: Optional[List[str]] = None
-    ) -> FeatureTransformer:
+    ) -> FeatureEngineeringTransformer:
         """
-        Create a FeatureTransformer from the successfully generated features.
+        Create a FeatureEngineeringTransformer from the successfully generated features.
 
         Parameters
         ----------
@@ -161,7 +161,7 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
 
         Returns
         -------
-        FeatureTransformer
+        FeatureEngineeringTransformer
             Unfitted transformer ready to be used in a Pipeline.
 
         Raises
@@ -184,7 +184,7 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
             ]
 
         config = self._build_executor_config(ideas)
-        return FeatureTransformer(
+        return FeatureEngineeringTransformer(
             transformations=config["transformations"],
             feature_prefix=self.feature_prefix,
             raise_on_error=False,

@@ -1,5 +1,5 @@
 """
-FeatureTransformer: a scikit-learn-compatible transformer backed by a fixed set
+FeatureEngineeringTransformer: a scikit-learn-compatible transformer backed by a fixed set
 of LLM-generated (or manually configured) transformations.
 
 Designed for the production phase after exploration with LLMFeatureEngineer:
@@ -22,11 +22,11 @@ from sklearn.utils.validation import check_is_fitted
 from skfeaturellm.transformations import TransformationPipeline
 
 
-class FeatureTransformer(BaseEstimator, TransformerMixin):
+class FeatureEngineeringTransformer(BaseEstimator, TransformerMixin):
     """
     Scikit-learn-compatible transformer that applies a fixed set of transformations.
 
-    Unlike LLMFeatureEngineer (which calls an LLM during fit), FeatureTransformer
+    Unlike LLMFeatureEngineer (which calls an LLM during fit), FeatureEngineeringTransformer
     is fully deterministic — it receives transformation configs at construction time
     and simply fits/applies them. This makes it safe to use inside Pipeline,
     GridSearchCV, cross_val_score, and joblib.
@@ -50,7 +50,7 @@ class FeatureTransformer(BaseEstimator, TransformerMixin):
 
     Examples
     --------
-    >>> transformer = FeatureTransformer(
+    >>> transformer = FeatureEngineeringTransformer(
     ...     transformations=[{"type": "log", "feature_name": "log_income", "columns": ["income"]}]
     ... )
     >>> transformer.fit(X_train).transform(X_test)
@@ -68,7 +68,7 @@ class FeatureTransformer(BaseEstimator, TransformerMixin):
 
     def fit(
         self, X: pd.DataFrame, y: Optional[pd.Series] = None
-    ) -> "FeatureTransformer":
+    ) -> "FeatureEngineeringTransformer":
         """
         Build and fit the transformation executor.
 
@@ -84,12 +84,12 @@ class FeatureTransformer(BaseEstimator, TransformerMixin):
         self
         """
         self.feature_names_in_ = list(X.columns)
-        executor = TransformationPipeline.from_dict(
+        pipeline = TransformationPipeline.from_dict(
             {"transformations": self.transformations},
             raise_on_error=self.raise_on_error,
         )
-        executor.fit(X)
-        self.executor_ = executor
+        pipeline.fit(X)
+        self.pipeline_ = pipeline
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
@@ -107,7 +107,7 @@ class FeatureTransformer(BaseEstimator, TransformerMixin):
             Copy of X with new feature columns appended.
         """
         check_is_fitted(self)
-        return self.executor_.transform(X)
+        return self.pipeline_.transform(X)
 
     def get_feature_names_out(
         self, input_features: Optional[List[str]] = None
@@ -125,7 +125,7 @@ class FeatureTransformer(BaseEstimator, TransformerMixin):
         np.ndarray of str
         """
         check_is_fitted(self)
-        generated = [t.feature_name for t in self.executor_.transformations]
+        generated = [t.feature_name for t in self.pipeline_.transformations]
         return np.array(self.feature_names_in_ + generated, dtype=object)
 
     def save(self, path: Union[str, Path]) -> None:
@@ -148,9 +148,9 @@ class FeatureTransformer(BaseEstimator, TransformerMixin):
         Path(path).write_text(json.dumps(payload, indent=2))
 
     @classmethod
-    def load(cls, path: Union[str, Path]) -> "FeatureTransformer":
+    def load(cls, path: Union[str, Path]) -> "FeatureEngineeringTransformer":
         """
-        Load a FeatureTransformer from a JSON file produced by save().
+        Load a FeatureEngineeringTransformer from a JSON file produced by save().
 
         Parameters
         ----------
@@ -159,7 +159,7 @@ class FeatureTransformer(BaseEstimator, TransformerMixin):
 
         Returns
         -------
-        FeatureTransformer
+        FeatureEngineeringTransformer
             An unfitted transformer; call fit() before transforming.
         """
         payload = json.loads(Path(path).read_text())

@@ -375,9 +375,13 @@ def test_to_transformer_before_fit_raises(mocker):
         engineer.to_transformer()
 
 
-def test_to_transformer_returns_feature_transformer(mocker, sample_data_frame):
-    """to_transformer() returns a FeatureTransformer built from generated features."""
-    from skfeaturellm.feature_transformer import FeatureTransformer
+def test_to_transformer_returns_feature_engineering_transformer(
+    mocker, sample_data_frame
+):
+    """to_transformer() returns a FeatureEngineeringTransformer built from generated features."""
+    from skfeaturellm.feature_engineering_transformer import (
+        FeatureEngineeringTransformer,
+    )
 
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
     idea = FeatureEngineeringIdea(
@@ -400,7 +404,7 @@ def test_to_transformer_returns_feature_transformer(mocker, sample_data_frame):
 
     transformer = engineer.to_transformer()
 
-    assert isinstance(transformer, FeatureTransformer)
+    assert isinstance(transformer, FeatureEngineeringTransformer)
     assert len(transformer.transformations) == 1
     assert transformer.transformations[0]["feature_name"] == "llm_feat_age_double"
 

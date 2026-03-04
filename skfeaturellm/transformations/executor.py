@@ -362,6 +362,66 @@ class TransformationExecutor:
 
         return result_df
 
+    def fit(self, df: pd.DataFrame) -> "TransformationExecutor":
+        """
+        Fit all transformations to training data.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The training DataFrame
+
+        Returns
+        -------
+        TransformationExecutor
+            self
+        """
+        for transformation in self.transformations:
+            try:
+                transformation.fit(df)
+            except TransformationError as e:
+                if self.raise_on_error:
+                    raise
+                warnings.warn(
+                    f"Fitting transformation '{transformation.feature_name}' failed: {e}. "
+                    f"Skipping."
+                )
+        return self
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Apply all fitted transformations and return a DataFrame with new features.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The input DataFrame
+
+        Returns
+        -------
+        pd.DataFrame
+            A copy of the input DataFrame with new feature columns added
+        """
+        if not self.transformations:
+            warnings.warn("No transformations to apply.")
+            return df.copy()
+
+        result_df = df.copy()
+
+        for transformation in self.transformations:
+            try:
+                feature_series = transformation.transform(df)
+                result_df[transformation.feature_name] = feature_series
+            except TransformationError as e:
+                if self.raise_on_error:
+                    raise
+                warnings.warn(
+                    f"Transformation '{transformation.feature_name}' failed: {e}. "
+                    f"Skipping."
+                )
+
+        return result_df
+
     def get_required_columns(
         self, transformations: Optional[List[BaseTransformation]] = None
     ) -> Set[str]:

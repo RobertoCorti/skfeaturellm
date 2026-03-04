@@ -129,7 +129,7 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         )
 
         # Execute transformations
-        result_df = executor.execute(X)
+        result_df = executor.fit(X).transform(X)
 
         # Track which features were successfully created
         expected_feature_names = [

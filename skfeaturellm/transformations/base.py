@@ -35,7 +35,6 @@ class BaseTransformation(ABC):
       transforms inherit the default no-op implementation.
     - transform(df): apply the transformation using fitted state.
     - fit_transform(df): convenience method combining fit + transform.
-    - execute(df): legacy alias for fit_transform; preserved for backwards compat.
     """
 
     @classmethod
@@ -127,25 +126,6 @@ class BaseTransformation(ABC):
             The resulting feature values
         """
         return self.fit(df).transform(df)
-
-    def execute(self, df: pd.DataFrame) -> pd.Series:
-        """
-        Execute the transformation (legacy alias for fit_transform).
-
-        Preserved for backwards compatibility — all existing code calling
-        .execute() keeps working.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            The input DataFrame
-
-        Returns
-        -------
-        pd.Series
-            The resulting feature values with name set to feature_name
-        """
-        return self.fit_transform(df)
 
     def validate_columns(self, df: pd.DataFrame) -> None:
         """

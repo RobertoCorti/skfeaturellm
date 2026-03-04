@@ -31,7 +31,7 @@ def test_executor_single_transformation(sample_df):
     t = AddTransformation("sum", columns=["a", "b"])
     executor = TransformationExecutor(transformations=[t])
 
-    result = executor.execute(sample_df)
+    result = executor.fit(sample_df).transform(sample_df)
 
     assert "sum" in result.columns
     assert list(result["sum"]) == [12, 24, 35, 48]
@@ -47,7 +47,7 @@ def test_executor_multiple_transformations(sample_df):
     ]
     executor = TransformationExecutor(transformations=transformations)
 
-    result = executor.execute(sample_df)
+    result = executor.fit(sample_df).transform(sample_df)
 
     assert "sum" in result.columns
     assert "product" in result.columns
@@ -66,7 +66,7 @@ def test_executor_raise_on_error_false(sample_df):
     )
 
     with pytest.warns(UserWarning):
-        result = executor.execute(sample_df)
+        result = executor.fit(sample_df).transform(sample_df)
 
     assert "sum" in result.columns
     assert "bad_ratio" not in result.columns
@@ -82,7 +82,7 @@ def test_executor_raise_on_error_true(sample_df):
     )
 
     with pytest.raises(DivisionByZeroError):
-        executor.execute(sample_df)
+        executor.fit(sample_df).transform(sample_df)
 
 
 def test_executor_get_required_columns():
@@ -103,7 +103,7 @@ def test_executor_empty_transformations(sample_df):
     executor = TransformationExecutor(transformations=[])
 
     with pytest.warns(UserWarning, match="No transformations"):
-        result = executor.execute(sample_df)
+        result = executor.fit(sample_df).transform(sample_df)
 
     assert list(result.columns) == list(sample_df.columns)
 
@@ -121,7 +121,7 @@ def test_executor_with_unary_transformation(sample_df):
     ]
     executor = TransformationExecutor(transformations=transformations)
 
-    result = executor.execute(sample_df)
+    result = executor.fit(sample_df).transform(sample_df)
 
     assert "log_positive" in result.columns
     assert "square_root_b" in result.columns
@@ -135,7 +135,7 @@ def test_executor_mixed_binary_and_unary(sample_df):
     ]
     executor = TransformationExecutor(transformations=transformations)
 
-    result = executor.execute(sample_df)
+    result = executor.fit(sample_df).transform(sample_df)
 
     assert "sum" in result.columns
     assert "log_positive" in result.columns
@@ -151,7 +151,7 @@ def test_from_dict_valid(sample_config, sample_df):
     executor = TransformationExecutor.from_dict(sample_config)
 
     assert len(executor.transformations) == 2
-    result = executor.execute(sample_df)
+    result = executor.fit(sample_df).transform(sample_df)
     assert "sum_ab" in result.columns
     assert "ratio_ab" in result.columns
 
@@ -212,7 +212,7 @@ def test_from_dict_with_constant(sample_df):
         ]
     }
     executor = TransformationExecutor.from_dict(config)
-    result = executor.execute(sample_df)
+    result = executor.fit(sample_df).transform(sample_df)
 
     assert "doubled" in result.columns
     assert list(result["doubled"]) == [20, 40, 60, 80]
@@ -232,7 +232,7 @@ def test_from_dict_with_unary_transformation(sample_df):
         ]
     }
     executor = TransformationExecutor.from_dict(config)
-    result = executor.execute(sample_df)
+    result = executor.fit(sample_df).transform(sample_df)
 
     assert "log_positive" in result.columns
     assert "sqrt_positive" in result.columns
@@ -254,7 +254,7 @@ def test_from_json_valid(sample_config, sample_df):
         executor = TransformationExecutor.from_json(f.name)
 
     assert len(executor.transformations) == 2
-    result = executor.execute(sample_df)
+    result = executor.fit(sample_df).transform(sample_df)
     assert "sum_ab" in result.columns
 
 
@@ -286,7 +286,7 @@ def test_from_yaml_valid(sample_config, sample_df):
         executor = TransformationExecutor.from_yaml(f.name)
 
     assert len(executor.transformations) == 2
-    result = executor.execute(sample_df)
+    result = executor.fit(sample_df).transform(sample_df)
     assert "sum_ab" in result.columns
 
 
@@ -343,24 +343,20 @@ def test_get_transformation_types_for_prompt():
 # =============================================================================
 
 
-def test_executor_fit_transform_matches_execute(sample_df):
-    """fit() + transform() produces the same result as execute() for stateless transforms."""
-    t1 = [
+def test_executor_fit_transform(sample_df):
+    """fit() + transform() produces the expected feature values."""
+    transformations = [
         AddTransformation("sum", columns=["a", "b"]),
         MulTransformation("product", columns=["a", "b"]),
     ]
-    t2 = [
-        AddTransformation("sum", columns=["a", "b"]),
-        MulTransformation("product", columns=["a", "b"]),
-    ]
-
-    result_exec = TransformationExecutor(transformations=t1).execute(sample_df)
-    result_ft = (
-        TransformationExecutor(transformations=t2).fit(sample_df).transform(sample_df)
+    result = (
+        TransformationExecutor(transformations=transformations)
+        .fit(sample_df)
+        .transform(sample_df)
     )
 
-    assert list(result_ft["sum"]) == list(result_exec["sum"])
-    assert list(result_ft["product"]) == list(result_exec["product"])
+    assert list(result["sum"]) == [12, 24, 35, 48]
+    assert list(result["product"]) == [20, 80, 150, 320]
 
 
 def test_executor_fit_returns_self(sample_df):

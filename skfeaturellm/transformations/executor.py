@@ -140,18 +140,18 @@ class TransformationExecutor:
     ...     DivTransformation("ratio", "a", right_column="b"),
     ...     AddTransformation("sum", "a", right_column="b"),
     ... ])
-    >>> result_df = executor.execute(df)
+    >>> result_df = executor.fit(df).transform(df)
 
     From JSON file:
 
     >>> executor = TransformationExecutor.from_json("transformations.json")
-    >>> result_df = executor.execute(df)
+    >>> result_df = executor.fit(df).transform(df)
 
     From dict (e.g., LLM output):
 
     >>> config = {"transformations": [{"type": "add", "feature_name": "sum", ...}]}
     >>> executor = TransformationExecutor.from_dict(config)
-    >>> result_df = executor.execute(df)
+    >>> result_df = executor.fit(df).transform(df)
     """
 
     def __init__(
@@ -310,57 +310,6 @@ class TransformationExecutor:
             )
         except ValueError as e:
             raise TransformationParseError(e)
-
-    def execute(
-        self,
-        df: pd.DataFrame,
-        transformations: Optional[List[BaseTransformation]] = None,
-    ) -> pd.DataFrame:
-        """
-        Execute all transformations and return a DataFrame with new features.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            The input DataFrame
-        transformations : List[BaseTransformation], optional
-            List of transformations to execute. If not provided, uses
-            self.transformations.
-
-        Returns
-        -------
-        pd.DataFrame
-            A copy of the input DataFrame with new feature columns added
-
-        Raises
-        ------
-        TransformationError
-            If a transformation fails and raise_on_error is True
-        """
-        # Use provided transformations or fall back to instance transformations
-        transforms = (
-            transformations if transformations is not None else self.transformations
-        )
-
-        if not transforms:
-            warnings.warn("No transformations to execute.")
-            return df.copy()
-
-        result_df = df.copy()
-
-        for transformation in transforms:
-            try:
-                feature_series = transformation.execute(df)
-                result_df[transformation.feature_name] = feature_series
-            except TransformationError as e:
-                if self.raise_on_error:
-                    raise
-                warnings.warn(
-                    f"Transformation '{transformation.feature_name}' failed: {e}. "
-                    f"Skipping."
-                )
-
-        return result_df
 
     def fit(self, df: pd.DataFrame) -> "TransformationExecutor":
         """

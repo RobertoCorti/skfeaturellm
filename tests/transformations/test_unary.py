@@ -21,7 +21,7 @@ from skfeaturellm.transformations import (
 def test_log_transformation(sample_df):
     """Test log transformation."""
     t = LogTransformation("log_positive", columns=["positive"])
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "log_positive"
     expected = np.log([1.0, 2.0, 3.0, 4.0])
@@ -33,7 +33,7 @@ def test_log_transformation_negative_values(sample_df):
     t = LogTransformation("log_negative", columns=["with_negative"])
 
     with pytest.raises(InvalidValueError, match="all values > 0"):
-        t.execute(sample_df)
+        t.fit_transform(sample_df)
 
 
 def test_log_transformation_zero_values(sample_df):
@@ -41,7 +41,7 @@ def test_log_transformation_zero_values(sample_df):
     t = LogTransformation("log_zero", columns=["with_zero"])
 
     with pytest.raises(InvalidValueError, match="all values > 0"):
-        t.execute(sample_df)
+        t.fit_transform(sample_df)
 
 
 def test_log_get_prompt_description():
@@ -59,7 +59,7 @@ def test_log_get_prompt_description():
 def test_log1p_transformation(sample_df):
     """Test log1p transformation."""
     t = Log1pTransformation("log1p_zero", columns=["with_zero"])
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "log1p_zero"
     expected = np.log1p([0, 1, 2, 3])
@@ -71,7 +71,7 @@ def test_log1p_transformation_negative_values(sample_df):
     t = Log1pTransformation("log1p_negative", columns=["with_negative"])
 
     with pytest.raises(InvalidValueError, match="all values >= 0"):
-        t.execute(sample_df)
+        t.fit_transform(sample_df)
 
 
 # =============================================================================
@@ -82,7 +82,7 @@ def test_log1p_transformation_negative_values(sample_df):
 def test_pow_transformation_square(sample_df):
     """Test power transformation with power=2 (square)."""
     t = PowTransformation("squared", columns=["b"], parameters={"power": 2})
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "squared"
     assert list(result) == [4, 16, 25, 64]
@@ -91,7 +91,7 @@ def test_pow_transformation_square(sample_df):
 def test_pow_transformation_cube(sample_df):
     """Test power transformation with power=3 (cube)."""
     t = PowTransformation("cubed", columns=["b"], parameters={"power": 3})
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "cubed"
     assert list(result) == [8, 64, 125, 512]
@@ -102,7 +102,7 @@ def test_pow_transformation_sqrt(sample_df):
     t = PowTransformation(
         "sqrt_positive", columns=["positive"], parameters={"power": 0.5}
     )
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "sqrt_positive"
     expected = np.sqrt([1.0, 2.0, 3.0, 4.0])
@@ -112,7 +112,7 @@ def test_pow_transformation_sqrt(sample_df):
 def test_pow_transformation_reciprocal(sample_df):
     """Test power transformation with power=-1 (reciprocal)."""
     t = PowTransformation("reciprocal_b", columns=["b"], parameters={"power": -1})
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "reciprocal_b"
     expected = [0.5, 0.25, 0.2, 0.125]
@@ -132,7 +132,7 @@ def test_pow_transformation_negative_power_with_zero(sample_df):
     )
 
     with pytest.raises(InvalidValueError, match="all values != 0"):
-        t.execute(sample_df)
+        t.fit_transform(sample_df)
 
 
 def test_pow_transformation_fractional_power_with_negative(sample_df):
@@ -142,7 +142,7 @@ def test_pow_transformation_fractional_power_with_negative(sample_df):
     )
 
     with pytest.raises(InvalidValueError, match="all values >= 0"):
-        t.execute(sample_df)
+        t.fit_transform(sample_df)
 
 
 # =============================================================================
@@ -153,7 +153,7 @@ def test_pow_transformation_fractional_power_with_negative(sample_df):
 def test_abs_transformation(sample_df):
     """Test abs transformation."""
     t = AbsTransformation("abs_negative", columns=["with_negative"])
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "abs_negative"
     assert list(result) == [2, 1, 1, 2]
@@ -167,7 +167,7 @@ def test_abs_transformation(sample_df):
 def test_exp_transformation(sample_df):
     """Test exp transformation."""
     t = ExpTransformation("exp_positive", columns=["positive"])
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "exp_positive"
     expected = np.exp([1.0, 2.0, 3.0, 4.0])
@@ -182,7 +182,7 @@ def test_exp_transformation(sample_df):
 def test_sqrt_transformation(sample_df):
     """Test sqrt transformation on non-negative values."""
     t = SqrtTransformation("sqrt_positive", columns=["positive"])
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "sqrt_positive"
     expected = np.sqrt([1.0, 2.0, 3.0, 4.0])
@@ -192,7 +192,7 @@ def test_sqrt_transformation(sample_df):
 def test_sqrt_transformation_zero(sample_df):
     """Test that sqrt of zero is valid (returns 0)."""
     t = SqrtTransformation("sqrt_zero", columns=["with_zero"])
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "sqrt_zero"
     expected = np.sqrt([0, 1, 2, 3])
@@ -204,7 +204,7 @@ def test_sqrt_transformation_negative_values(sample_df):
     t = SqrtTransformation("sqrt_negative", columns=["with_negative"])
 
     with pytest.raises(InvalidValueError, match="all values >= 0"):
-        t.execute(sample_df)
+        t.fit_transform(sample_df)
 
 
 def test_sqrt_get_prompt_description():
@@ -230,16 +230,13 @@ def test_unary_get_required_columns():
 # =============================================================================
 
 
-def test_fit_transform_matches_execute(sample_df):
-    """fit(df).transform(df) produces the same result as execute(df)."""
-    t_exec = LogTransformation("log_positive", columns=["positive"])
-    t_ft = LogTransformation("log_positive", columns=["positive"])
+def test_fit_transform(sample_df):
+    """fit(df).transform(df) produces the expected result."""
+    t = LogTransformation("log_positive", columns=["positive"])
+    result = t.fit(sample_df).transform(sample_df)
 
-    expected = t_exec.execute(sample_df)
-    result = t_ft.fit(sample_df).transform(sample_df)
-
-    np.testing.assert_array_almost_equal(result, expected)
-    assert result.name == expected.name
+    np.testing.assert_array_almost_equal(result, np.log([1.0, 2.0, 3.0, 4.0]))
+    assert result.name == "log_positive"
 
 
 def test_fit_returns_self(sample_df):

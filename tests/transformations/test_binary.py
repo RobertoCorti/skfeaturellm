@@ -22,7 +22,7 @@ from skfeaturellm.transformations import (
 def test_add_two_columns(sample_df):
     """Test addition of two columns."""
     t = AddTransformation("sum", columns=["a", "b"])
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "sum"
     assert list(result) == [12, 24, 35, 48]
@@ -31,7 +31,7 @@ def test_add_two_columns(sample_df):
 def test_add_column_and_constant(sample_df):
     """Test addition of column and constant."""
     t = AddTransformation("plus_five", columns=["a"], parameters={"constant": 5.0})
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "plus_five"
     assert list(result) == [15, 25, 35, 45]
@@ -61,7 +61,7 @@ def test_add_get_prompt_description():
 def test_sub_two_columns(sample_df):
     """Test subtraction of two columns."""
     t = SubTransformation("diff", columns=["a", "b"])
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "diff"
     assert list(result) == [8, 16, 25, 32]
@@ -70,7 +70,7 @@ def test_sub_two_columns(sample_df):
 def test_sub_column_and_constant(sample_df):
     """Test subtraction of constant from column."""
     t = SubTransformation("minus_five", columns=["a"], parameters={"constant": 5.0})
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "minus_five"
     assert list(result) == [5, 15, 25, 35]
@@ -84,7 +84,7 @@ def test_sub_column_and_constant(sample_df):
 def test_mul_two_columns(sample_df):
     """Test multiplication of two columns."""
     t = MulTransformation("product", columns=["a", "b"])
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "product"
     assert list(result) == [20, 80, 150, 320]
@@ -93,7 +93,7 @@ def test_mul_two_columns(sample_df):
 def test_mul_column_and_constant(sample_df):
     """Test multiplication of column by constant."""
     t = MulTransformation("doubled", columns=["a"], parameters={"constant": 2.0})
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "doubled"
     assert list(result) == [20, 40, 60, 80]
@@ -107,7 +107,7 @@ def test_mul_column_and_constant(sample_df):
 def test_div_two_columns(sample_df):
     """Test division of two columns."""
     t = DivTransformation("ratio", columns=["a", "b"])
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "ratio"
     assert list(result) == [5.0, 5.0, 6.0, 5.0]
@@ -116,7 +116,7 @@ def test_div_two_columns(sample_df):
 def test_div_column_and_constant(sample_df):
     """Test division of column by constant."""
     t = DivTransformation("halved", columns=["a"], parameters={"constant": 2.0})
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "halved"
     assert list(result) == [5.0, 10.0, 15.0, 20.0]
@@ -127,7 +127,7 @@ def test_div_by_zero_column(sample_df):
     t = DivTransformation("ratio", columns=["a", "c"])
 
     with pytest.raises(DivisionByZeroError):
-        t.execute(sample_df)
+        t.fit_transform(sample_df)
 
 
 def test_div_by_zero_constant(sample_df):
@@ -135,7 +135,7 @@ def test_div_by_zero_constant(sample_df):
     t = DivTransformation("ratio", columns=["a"], parameters={"constant": 0.0})
 
     with pytest.raises(DivisionByZeroError):
-        t.execute(sample_df)
+        t.fit_transform(sample_df)
 
 
 # =============================================================================
@@ -146,7 +146,7 @@ def test_div_by_zero_constant(sample_df):
 def test_max_two_columns(sample_df):
     """Test element-wise maximum of two columns."""
     t = MaxTransformation("max_ab", columns=["a", "b"])
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "max_ab"
     expected = np.maximum([10, 20, 30, 40], [2, 4, 5, 8])
@@ -156,7 +156,7 @@ def test_max_two_columns(sample_df):
 def test_max_column_and_constant(sample_df):
     """Test element-wise maximum of column and constant (lower-bound clamp)."""
     t = MaxTransformation("at_least_15", columns=["a"], parameters={"constant": 15.0})
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "at_least_15"
     expected = np.maximum([10, 20, 30, 40], 15.0)
@@ -178,7 +178,7 @@ def test_max_get_prompt_description():
 def test_min_two_columns(sample_df):
     """Test element-wise minimum of two columns."""
     t = MinTransformation("min_ab", columns=["a", "b"])
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "min_ab"
     expected = np.minimum([10, 20, 30, 40], [2, 4, 5, 8])
@@ -188,7 +188,7 @@ def test_min_two_columns(sample_df):
 def test_min_column_and_constant(sample_df):
     """Test element-wise minimum of column and constant (upper-bound clamp)."""
     t = MinTransformation("at_most_25", columns=["a"], parameters={"constant": 25.0})
-    result = t.execute(sample_df)
+    result = t.fit_transform(sample_df)
 
     assert result.name == "at_most_25"
     expected = np.minimum([10, 20, 30, 40], 25.0)
@@ -224,7 +224,7 @@ def test_binary_missing_column(sample_df):
     t = AddTransformation("sum", columns=["a", "nonexistent"])
 
     with pytest.raises(ColumnNotFoundError):
-        t.execute(sample_df)
+        t.fit_transform(sample_df)
 
 
 # =============================================================================
@@ -232,16 +232,13 @@ def test_binary_missing_column(sample_df):
 # =============================================================================
 
 
-def test_fit_transform_matches_execute(sample_df):
-    """fit(df).transform(df) produces the same result as execute(df)."""
-    t_exec = AddTransformation("sum", columns=["a", "b"])
-    t_ft = AddTransformation("sum", columns=["a", "b"])
+def test_fit_transform(sample_df):
+    """fit(df).transform(df) produces the expected result."""
+    t = AddTransformation("sum", columns=["a", "b"])
+    result = t.fit(sample_df).transform(sample_df)
 
-    expected = t_exec.execute(sample_df)
-    result = t_ft.fit(sample_df).transform(sample_df)
-
-    assert list(result) == list(expected)
-    assert result.name == expected.name
+    assert list(result) == [12, 24, 35, 48]
+    assert result.name == "sum"
 
 
 def test_fit_returns_self(sample_df):

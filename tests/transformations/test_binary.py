@@ -225,3 +225,26 @@ def test_binary_missing_column(sample_df):
 
     with pytest.raises(ColumnNotFoundError):
         t.execute(sample_df)
+
+
+# =============================================================================
+# Test: fit/transform interface
+# =============================================================================
+
+
+def test_fit_transform_matches_execute(sample_df):
+    """fit(df).transform(df) produces the same result as execute(df)."""
+    t_exec = AddTransformation("sum", columns=["a", "b"])
+    t_ft = AddTransformation("sum", columns=["a", "b"])
+
+    expected = t_exec.execute(sample_df)
+    result = t_ft.fit(sample_df).transform(sample_df)
+
+    assert list(result) == list(expected)
+    assert result.name == expected.name
+
+
+def test_fit_returns_self(sample_df):
+    """fit() returns self for chaining."""
+    t = AddTransformation("sum", columns=["a", "b"])
+    assert t.fit(sample_df) is t

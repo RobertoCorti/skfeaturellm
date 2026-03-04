@@ -223,3 +223,26 @@ def test_unary_get_required_columns():
     """Test that unary transformations return correct required columns."""
     t = LogTransformation("log_col", columns=["some_column"])
     assert t.get_required_columns() == {"some_column"}
+
+
+# =============================================================================
+# Test: fit/transform interface
+# =============================================================================
+
+
+def test_fit_transform_matches_execute(sample_df):
+    """fit(df).transform(df) produces the same result as execute(df)."""
+    t_exec = LogTransformation("log_positive", columns=["positive"])
+    t_ft = LogTransformation("log_positive", columns=["positive"])
+
+    expected = t_exec.execute(sample_df)
+    result = t_ft.fit(sample_df).transform(sample_df)
+
+    np.testing.assert_array_almost_equal(result, expected)
+    assert result.name == expected.name
+
+
+def test_fit_returns_self(sample_df):
+    """fit() returns self for chaining."""
+    t = LogTransformation("log_positive", columns=["positive"])
+    assert t.fit(sample_df) is t

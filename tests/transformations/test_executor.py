@@ -9,6 +9,7 @@ import pytest
 
 from skfeaturellm.transformations import (
     AddTransformation,
+    ColumnNotFoundError,
     DivisionByZeroError,
     DivTransformation,
     LogTransformation,
@@ -335,3 +336,64 @@ def test_get_transformation_types_for_prompt():
     # Should contain descriptions
     assert "Addition" in prompt_doc or "+" in prompt_doc
     assert "Division" in prompt_doc or "/" in prompt_doc
+
+
+# =============================================================================
+# Test: TransformationExecutor fit() and transform()
+# =============================================================================
+
+
+def test_executor_fit_transform_matches_execute(sample_df):
+    """fit() + transform() produces the same result as execute() for stateless transforms."""
+    t1 = [
+        AddTransformation("sum", columns=["a", "b"]),
+        MulTransformation("product", columns=["a", "b"]),
+    ]
+    t2 = [
+        AddTransformation("sum", columns=["a", "b"]),
+        MulTransformation("product", columns=["a", "b"]),
+    ]
+
+    result_exec = TransformationExecutor(transformations=t1).execute(sample_df)
+    result_ft = (
+        TransformationExecutor(transformations=t2).fit(sample_df).transform(sample_df)
+    )
+
+    assert list(result_ft["sum"]) == list(result_exec["sum"])
+    assert list(result_ft["product"]) == list(result_exec["product"])
+
+
+def test_executor_fit_returns_self(sample_df):
+    """fit() returns self for chaining."""
+    executor = TransformationExecutor(
+        transformations=[AddTransformation("sum", columns=["a", "b"])]
+    )
+    assert executor.fit(sample_df) is executor
+
+
+def test_executor_transform_empty_warns(sample_df):
+    """transform() with no transformations issues a warning."""
+    executor = TransformationExecutor(transformations=[])
+    with pytest.warns(UserWarning, match="No transformations"):
+        result = executor.transform(sample_df)
+    assert list(result.columns) == list(sample_df.columns)
+
+
+def test_executor_fit_raise_on_error_true(sample_df):
+    """fit() raises ColumnNotFoundError when column is missing and raise_on_error=True."""
+    executor = TransformationExecutor(
+        transformations=[LogTransformation("log_missing", columns=["missing_col"])],
+        raise_on_error=True,
+    )
+    with pytest.raises(ColumnNotFoundError):
+        executor.fit(sample_df)
+
+
+def test_executor_fit_raise_on_error_false(sample_df):
+    """fit() warns and skips when column is missing and raise_on_error=False."""
+    executor = TransformationExecutor(
+        transformations=[LogTransformation("log_missing", columns=["missing_col"])],
+        raise_on_error=False,
+    )
+    with pytest.warns(UserWarning, match="Fitting transformation"):
+        executor.fit(sample_df)

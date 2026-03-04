@@ -1,8 +1,20 @@
 """Tests for binning (discretization) transformations."""
 
+import pandas as pd
 import pytest
 
 from skfeaturellm.transformations import BinTransformation
+
+
+@pytest.fixture
+def train_df():
+    return pd.DataFrame({"value": [0.0, 10.0, 20.0, 30.0, 40.0]})
+
+
+@pytest.fixture
+def test_df():
+    return pd.DataFrame({"value": [5.0, 15.0, 35.0]})
+
 
 # =============================================================================
 # Test: BinTransformation — n_bins mode
@@ -135,3 +147,68 @@ def test_bin_edges_too_few():
     """Test that bin_edges with fewer than 2 values raises ValueError."""
     with pytest.raises(ValueError, match="'bin_edges' must contain at least 2 values"):
         BinTransformation("bin_a", columns=["a"], parameters={"bin_edges": [10.0]})
+
+
+# =============================================================================
+# Test: BinTransformation — stateful fit/transform
+# =============================================================================
+
+
+def test_bin_edges_none_before_fit(train_df):
+    """bin_edges_ is None before fit() is called."""
+    t = BinTransformation("binned", columns=["value"], parameters={"n_bins": 4})
+    assert t.bin_edges_ is None
+
+
+def test_bin_n_bins_fit_stores_edges(train_df):
+    """fit() with n_bins computes and stores bin edges (n_bins + 1 values)."""
+    t = BinTransformation("binned", columns=["value"], parameters={"n_bins": 4})
+    t.fit(train_df)
+    assert t.bin_edges_ is not None
+    assert len(t.bin_edges_) == 5  # n_bins + 1 edges
+
+
+def test_bin_custom_edges_fit_stores_edges(train_df):
+    """fit() with bin_edges stores the provided edges as-is."""
+    edges = [0.0, 10.0, 30.0, 50.0]
+    t = BinTransformation("binned", columns=["value"], parameters={"bin_edges": edges})
+    t.fit(train_df)
+    assert t.bin_edges_ == edges
+
+
+def test_bin_fit_returns_self(train_df):
+    """fit() returns self for chaining."""
+    t = BinTransformation("binned", columns=["value"], parameters={"n_bins": 2})
+    assert t.fit(train_df) is t
+
+
+def test_bin_transform_reuses_fitted_edges(train_df, test_df):
+    """Edges learned from train_df are reused for test_df (not recomputed)."""
+    t = BinTransformation("binned", columns=["value"], parameters={"n_bins": 2})
+    t.fit(train_df)
+    edges_after_fit = list(t.bin_edges_)
+
+    t.transform(test_df)  # must not change bin_edges_
+    assert t.bin_edges_ == edges_after_fit
+
+
+def test_bin_fit_transform_produces_output(train_df, test_df):
+    """fit() on train and transform() on test both return a correctly named Series."""
+    t = BinTransformation("binned", columns=["value"], parameters={"n_bins": 2})
+    t.fit(train_df)
+
+    result_train = t.transform(train_df)
+    result_test = t.transform(test_df)
+
+    assert result_train.name == "binned"
+    assert result_test.name == "binned"
+    assert len(result_train) == len(train_df)
+    assert len(result_test) == len(test_df)
+
+
+def test_bin_execute_works_without_explicit_fit(train_df):
+    """execute() (legacy path via fit_transform) works without an explicit fit() call."""
+    t = BinTransformation("binned", columns=["value"], parameters={"n_bins": 3})
+    result = t.execute(train_df)
+    assert result.name == "binned"
+    assert len(result) == len(train_df)

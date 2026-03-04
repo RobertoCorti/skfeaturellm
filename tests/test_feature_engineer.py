@@ -360,3 +360,108 @@ def test_fit_without_y_dataset_statistics_not_provided(
     call_kwargs = mock_generate.call_args.kwargs
     assert "dataset_statistics" in call_kwargs
     assert "Not provided." in call_kwargs["dataset_statistics"]
+
+
+# =============================================================================
+# Test: to_transformer()
+# =============================================================================
+
+
+def test_to_transformer_before_fit_raises(mocker):
+    """to_transformer() raises ValueError if fit() has not been called."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    engineer = LLMFeatureEngineer(problem_type="classification")
+    with pytest.raises(ValueError, match="fit must be called before to_transformer"):
+        engineer.to_transformer()
+
+
+def test_to_transformer_returns_feature_transformer(mocker, sample_data_frame):
+    """to_transformer() returns a FeatureTransformer built from generated features."""
+    from skfeaturellm.feature_transformer import FeatureTransformer
+
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    idea = FeatureEngineeringIdea(
+        type="mul",
+        feature_name="age_double",
+        columns=["age"],
+        parameters={"constant": 2.0},
+        description="Double the age",
+    )
+    mock_ideas = Mock()
+    mock_ideas.ideas = [idea]
+    mocker.patch(
+        "skfeaturellm.llm_interface.LLMInterface.generate_engineered_features",
+        return_value=mock_ideas,
+    )
+
+    engineer = LLMFeatureEngineer(problem_type="classification")
+    engineer.fit(sample_data_frame)
+    engineer.transform(sample_data_frame)
+
+    transformer = engineer.to_transformer()
+
+    assert isinstance(transformer, FeatureTransformer)
+    assert len(transformer.transformations) == 1
+    assert transformer.transformations[0]["feature_name"] == "llm_feat_age_double"
+
+
+def test_to_transformer_filter_by_prefixed_name(mocker, sample_data_frame):
+    """to_transformer(features=[...]) filters by prefixed feature name."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    ideas = [
+        FeatureEngineeringIdea(
+            type="mul",
+            feature_name="age_double",
+            columns=["age"],
+            parameters={"constant": 2.0},
+            description="Double the age",
+        ),
+        FeatureEngineeringIdea(
+            type="add",
+            feature_name="income_plus_age",
+            columns=["income", "age"],
+            description="Sum of income and age",
+        ),
+    ]
+    mock_ideas = Mock()
+    mock_ideas.ideas = ideas
+    mocker.patch(
+        "skfeaturellm.llm_interface.LLMInterface.generate_engineered_features",
+        return_value=mock_ideas,
+    )
+
+    engineer = LLMFeatureEngineer(problem_type="classification")
+    engineer.fit(sample_data_frame)
+    engineer.transform(sample_data_frame)
+
+    transformer = engineer.to_transformer(features=["llm_feat_age_double"])
+
+    assert len(transformer.transformations) == 1
+    assert transformer.transformations[0]["feature_name"] == "llm_feat_age_double"
+
+
+def test_to_transformer_filter_by_unprefixed_name(mocker, sample_data_frame):
+    """to_transformer() also accepts names without the feature_prefix."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    idea = FeatureEngineeringIdea(
+        type="mul",
+        feature_name="age_double",
+        columns=["age"],
+        parameters={"constant": 2.0},
+        description="Double the age",
+    )
+    mock_ideas = Mock()
+    mock_ideas.ideas = [idea]
+    mocker.patch(
+        "skfeaturellm.llm_interface.LLMInterface.generate_engineered_features",
+        return_value=mock_ideas,
+    )
+
+    engineer = LLMFeatureEngineer(problem_type="classification")
+    engineer.fit(sample_data_frame)
+    engineer.transform(sample_data_frame)
+
+    transformer = engineer.to_transformer(features=["age_double"])
+
+    assert len(transformer.transformations) == 1
+    assert transformer.transformations[0]["feature_name"] == "llm_feat_age_double"

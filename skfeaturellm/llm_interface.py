@@ -2,13 +2,14 @@
 Module for handling interactions with Language Models.
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 from langchain.chat_models import init_chat_model
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
 
-from skfeaturellm.prompts import FEATURE_ENGINEERING_PROMPT
+from skfeaturellm.prompts import FEATURE_ENGINEERING_PROMPT, SELECTION_FEEDBACK_PROMPT
 from skfeaturellm.schemas import (
     FeatureDescription,
     FeatureDescriptions,
@@ -183,6 +184,44 @@ class LLMInterface:
             "unary_types": unary_types,
             "binary_types": binary_types,
         }
+
+    def generate_engineered_features_iterative(
+        self,
+        prompt_context: Dict,
+        conversation_history: List[BaseMessage],
+        feedback_context: Optional[Dict] = None,
+    ) -> Tuple[FeatureEngineeringIdeas, List[BaseMessage]]:
+        """
+        Generate feature engineering ideas in an iterative conversation.
+
+        Parameters
+        ----------
+        prompt_context : Dict
+            Prompt context dict from generate_prompt_context(). Used only on
+            the first round (when conversation_history is empty).
+        conversation_history : List[BaseMessage]
+            Accumulated conversation messages. Empty on the first round.
+        feedback_context : Optional[Dict]
+            Feedback dict with keys ``selected_features_table``,
+            ``rejected_features_table``, and ``max_features``. Required for
+            rounds after the first.
+
+        Returns
+        -------
+        Tuple[FeatureEngineeringIdeas, List[BaseMessage]]
+            The generated ideas and the updated conversation history
+            (input messages + AI response appended).
+        """
+        if not conversation_history:
+            messages = self.prompt_template.format_messages(**prompt_context)
+        else:
+            feedback_message = SELECTION_FEEDBACK_PROMPT.format(**feedback_context)
+            messages = conversation_history + [HumanMessage(content=feedback_message)]
+
+        ideas = self.llm.invoke(messages)
+        updated_history = messages + [AIMessage(content=ideas.model_dump_json())]
+
+        return ideas, updated_history
 
     @staticmethod
     def _format_dataset_statistics(

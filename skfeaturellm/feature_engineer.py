@@ -3,10 +3,11 @@ Main module for LLM-powered feature engineering.
 """
 
 import warnings
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.feature_selection import SelectorMixin
 
 from skfeaturellm.feature_engineering_transformer import FeatureEngineeringTransformer
 from skfeaturellm.feature_evaluation import FeatureEvaluationResult, FeatureEvaluator
@@ -189,6 +190,203 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
             feature_prefix=self.feature_prefix,
             raise_on_error=False,
         )
+
+    def fit_selective(  # pylint: disable=too-many-arguments
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        selector: SelectorMixin,
+        n_rounds: int = 3,
+        eval_set: tuple[pd.DataFrame, pd.Series] | None = None,
+        feature_descriptions: Optional[List[Dict[str, Any]]] = None,
+        target_description: Optional[str] = None,
+    ) -> "LLMFeatureEngineer":
+        """
+        Iteratively generate and select features using an LLM and a feature selector.
+
+        In each round the LLM proposes new features, the selector is fitted on the
+        generated features (using ``eval_set`` if provided, otherwise training data),
+        and the selection results are fed back to the LLM as context for the next
+        round. Only the features that survive selection across all rounds are kept.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            Training features. Transformations are always fitted on this data.
+        y : pd.Series
+            Training target.
+        selector : SelectorMixin
+            An initialised scikit-learn–compatible selector (e.g.
+            ``SelectKBest(k=5)``, ``SelectFromModel(RandomForestClassifier())``).
+        n_rounds : int, default=3
+            Number of generate→select→feedback rounds.
+        eval_set : tuple of (pd.DataFrame, pd.Series), optional
+            Validation data ``(X_val, y_val)``. When provided the selector is
+            fitted on the validation features so that selection reflects
+            generalisation, not training performance.
+        feature_descriptions : list of dict, optional
+            Descriptions for input features. Auto-detected from ``X`` if omitted.
+        target_description : str, optional
+            Description of the target variable passed to the LLM.
+
+        Returns
+        -------
+        self : LLMFeatureEngineer
+            The fitted transformer. Call ``transform()`` to apply the selected
+            features and ``to_transformer()`` to export them for production.
+        """
+        if feature_descriptions is None:
+            feature_descriptions = [
+                {"name": col, "type": str(X[col].dtype), "description": ""}
+                for col in X.columns
+            ]
+
+        dataset_statistics = LLMInterface._format_dataset_statistics(
+            X, y, self.problem_type
+        )
+        prompt_context = self.llm_interface.generate_prompt_context(
+            feature_descriptions=feature_descriptions,
+            target_description=target_description,
+            problem_type=self.problem_type.value,
+            max_features=self.max_features,
+            dataset_statistics=dataset_statistics,
+        )
+
+        X_eval, y_eval = eval_set if eval_set is not None else (None, None)
+
+        conversation_history: list = []
+        all_selected_ideas: List[Any] = []
+        feedback_context = None
+
+        for _ in range(n_rounds):
+            ideas_result, conversation_history = (
+                self.llm_interface.generate_engineered_features_iterative(
+                    prompt_context=prompt_context,
+                    conversation_history=conversation_history,
+                    feedback_context=feedback_context,
+                )
+            )
+
+            selected, rejected, scores = self._run_selector(
+                X, y, ideas_result.ideas, selector, X_eval, y_eval
+            )
+            all_selected_ideas.extend(selected)
+
+            feedback_context = self._build_feedback_context(
+                selected_ideas=selected,
+                rejected_ideas=rejected,
+                scores=scores,
+                max_features=self.max_features or 10,
+            )
+
+        self.generated_features_ideas = all_selected_ideas
+        return self
+
+    def _run_selector(  # pylint: disable=too-many-arguments
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        ideas: List[Any],
+        selector: SelectorMixin,
+        X_eval: Optional[pd.DataFrame] = None,
+        y_eval: Optional[pd.Series] = None,
+    ) -> Tuple[List[Any], List[Any], Dict[str, float]]:
+        """
+        Apply a round's ideas to X, fit the selector, and return selected/rejected.
+
+        Transformations are always fitted on ``X`` (training data). If ``X_eval``
+        is provided the selector is fitted on the transformed validation features
+        so that selection reflects generalisation performance.
+
+        Returns
+        -------
+        selected_ideas, rejected_ideas, scores
+            ``scores`` maps prefixed feature names to raw selector scores.
+        """
+        executor_config = self._build_executor_config(ideas)
+        executor = TransformationPipeline.from_dict(
+            executor_config, raise_on_error=False
+        )
+        executor.fit(X)
+
+        expected_names = [f"{self.feature_prefix}{idea.feature_name}" for idea in ideas]
+
+        if X_eval is not None:
+            X_transformed = executor.transform(X_eval)
+            y_sel = y_eval
+        else:
+            X_transformed = executor.transform(X)
+            y_sel = y
+
+        created_pairs = [
+            (idea, name)
+            for idea, name in zip(ideas, expected_names)
+            if name in X_transformed.columns
+        ]
+
+        if not created_pairs:
+            return [], list(ideas), {}
+
+        created_ideas, created_names = zip(*created_pairs)
+        created_names_list = list(created_names)
+
+        selector.fit(X_transformed, y_sel)
+        full_mask = selector.get_support()
+        all_cols = X_transformed.columns.tolist()
+        new_feat_indices = [all_cols.index(name) for name in created_names_list]
+        mask = full_mask[new_feat_indices]
+
+        scores: Dict[str, float] = {}
+        if hasattr(selector, "scores_"):
+            scores = {
+                name: selector.scores_[i]
+                for name, i in zip(created_names_list, new_feat_indices)
+            }
+        elif hasattr(selector, "ranking_"):
+            scores = {
+                name: 1.0 / selector.ranking_[i]
+                for name, i in zip(created_names_list, new_feat_indices)
+            }
+
+        created_names_set = {idea.feature_name for idea in created_ideas}
+        selected = [idea for idea, sel in zip(created_ideas, mask) if sel]
+        rejected = [idea for idea, sel in zip(created_ideas, mask) if not sel]
+        rejected += [
+            idea for idea in ideas if idea.feature_name not in created_names_set
+        ]
+
+        return selected, rejected, scores
+
+    def _build_feedback_context(  # pylint: disable=too-many-arguments
+        self,
+        selected_ideas: List[Any],
+        rejected_ideas: List[Any],
+        scores: Dict[str, float],
+        max_features: int,
+    ) -> Dict[str, Any]:
+        """Build the feedback context dict for SELECTION_FEEDBACK_PROMPT."""
+
+        def _to_table(ideas: List[Any]) -> str:
+            if not ideas:
+                return "None"
+            rows = []
+            for idea in ideas:
+                prefixed = f"{self.feature_prefix}{idea.feature_name}"
+                score = scores.get(prefixed)
+                rows.append(
+                    {
+                        "feature": prefixed,
+                        "type": idea.type,
+                        "score": f"{score:.4g}" if score is not None else "N/A",
+                    }
+                )
+            return pd.DataFrame(rows).to_markdown(index=False)
+
+        return {
+            "selected_features_table": _to_table(selected_ideas),
+            "rejected_features_table": _to_table(rejected_ideas),
+            "max_features": max_features,
+        }
 
     def _build_executor_config(
         self, ideas: List[Any]

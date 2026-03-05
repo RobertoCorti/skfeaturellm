@@ -219,3 +219,111 @@ def test_generate_prompt_context_default_dataset_statistics(
     ctx = llm.generate_prompt_context(feature_descriptions=sample_features)
 
     assert ctx["dataset_statistics"] == "Not provided."
+
+
+# --- generate_engineered_features_iterative ---
+
+
+@pytest.fixture
+def llm_with_mock(mocker, sample_features):  # pylint: disable=redefined-outer-name
+    """LLMInterface with mocked init_chat_model and a mock llm attribute."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    llm = LLMInterface(model_name="gpt-4o", model_provider="openai")
+    mock_llm = Mock()
+    llm.llm = mock_llm
+    return llm, sample_features
+
+
+def _make_ideas():
+    from skfeaturellm.schemas import FeatureEngineeringIdeas
+
+    idea = FeatureEngineeringIdea(
+        type="mul",
+        feature_name="age_double",
+        columns=["age"],
+        parameters={"constant": 2.0},
+        description="Double the age",
+    )
+    return FeatureEngineeringIdeas(ideas=[idea])
+
+
+def test_iterative_first_round_uses_prompt_template(
+    mocker, llm_with_mock, sample_features
+):  # pylint: disable=redefined-outer-name
+    """First round (empty history) formats messages from the prompt template."""
+    llm, features = llm_with_mock
+    ideas = _make_ideas()
+    llm.llm.invoke.return_value = ideas
+
+    prompt_context = llm.generate_prompt_context(feature_descriptions=features)
+    result_ideas, history = llm.generate_engineered_features_iterative(
+        prompt_context=prompt_context,
+        conversation_history=[],
+    )
+
+    llm.llm.invoke.assert_called_once()
+    assert result_ideas is ideas
+    # history = formatted messages + AIMessage
+    assert len(history) >= 2
+    assert history[-1].content == ideas.model_dump_json()
+
+
+def test_iterative_subsequent_round_appends_feedback_message(
+    mocker, llm_with_mock, sample_features
+):  # pylint: disable=redefined-outer-name
+    """Subsequent rounds prepend existing history and append a HumanMessage feedback."""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    llm, features = llm_with_mock
+    ideas = _make_ideas()
+    llm.llm.invoke.return_value = ideas
+
+    prompt_context = llm.generate_prompt_context(feature_descriptions=features)
+
+    # Simulate history from round 1
+    fake_history = [HumanMessage(content="round 1 prompt"), AIMessage(content="{}")]
+    feedback_context = {
+        "selected_features_table": (
+            "| feature | type | score |\n|---|---|---|\n| llm_feat_age_double | mul | 0.9 |"
+        ),
+        "rejected_features_table": "None",
+        "max_features": 5,
+    }
+
+    result_ideas, updated_history = llm.generate_engineered_features_iterative(
+        prompt_context=prompt_context,
+        conversation_history=fake_history,
+        feedback_context=feedback_context,
+    )
+
+    llm.llm.invoke.assert_called_once()
+    call_args = llm.llm.invoke.call_args[0][0]
+    # First two messages are from fake_history
+    assert call_args[0] is fake_history[0]
+    assert call_args[1] is fake_history[1]
+    # Third message is the feedback HumanMessage
+    assert isinstance(call_args[2], HumanMessage)
+    assert "selected" in call_args[2].content.lower()
+    # Updated history ends with AIMessage
+    assert updated_history[-1].content == ideas.model_dump_json()
+
+
+def test_iterative_returns_ideas_and_updated_history(
+    mocker, llm_with_mock, sample_features
+):  # pylint: disable=redefined-outer-name
+    """Return value is (FeatureEngineeringIdeas, list of messages with AI response appended)."""
+    from skfeaturellm.schemas import FeatureEngineeringIdeas
+
+    llm, features = llm_with_mock
+    ideas = _make_ideas()
+    llm.llm.invoke.return_value = ideas
+
+    prompt_context = llm.generate_prompt_context(feature_descriptions=features)
+    result, history = llm.generate_engineered_features_iterative(
+        prompt_context=prompt_context,
+        conversation_history=[],
+    )
+
+    assert isinstance(result, FeatureEngineeringIdeas)
+    assert isinstance(history, list)
+    assert history[-1].content == ideas.model_dump_json()

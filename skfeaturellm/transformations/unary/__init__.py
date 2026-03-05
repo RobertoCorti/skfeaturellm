@@ -12,7 +12,6 @@ from skfeaturellm.transformations.unary.arithmetic import (
     SqrtTransformation,
     UnaryTransformation,
 )
-from skfeaturellm.transformations.unary.binning import BinTransformation
 
 __all__ = [
     "UnaryTransformation",
@@ -22,6 +21,5 @@ __all__ = [
     "ExpTransformation",
     "PowTransformation",
     "SqrtTransformation",
-    "BinTransformation",
     "InvalidValueError",
 ]

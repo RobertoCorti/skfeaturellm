@@ -36,7 +36,6 @@ from skfeaturellm.transformations.pipeline import (
 # Import unary transformations to trigger registration
 from skfeaturellm.transformations.unary import (
     AbsTransformation,
-    BinTransformation,
     ExpTransformation,
     InvalidValueError,
     Log1pTransformation,
@@ -77,6 +76,5 @@ __all__ = [
     "ExpTransformation",
     "PowTransformation",
     "SqrtTransformation",
-    "BinTransformation",
     "InvalidValueError",
 ]

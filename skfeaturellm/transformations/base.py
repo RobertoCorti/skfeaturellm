@@ -73,7 +73,7 @@ class BaseTransformation(ABC):
         Fit the transformation to training data.
 
         The default implementation validates required columns and returns self.
-        Stateful subclasses (e.g. BinTransformation) should override this to
+        Stateful subclasses should override this to
         learn parameters from the training data.
 
         Parameters

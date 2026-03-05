@@ -58,20 +58,17 @@ Feature Transformation DSL
 --------------------------
 The LLM generates ideas in a structured format with:
 
-- **type**: Transformation type (e.g., ``add``, ``div``, ``log``, ``bin``)
+- **type**: Transformation type (e.g., ``add``, ``div``, ``log``)
 - **feature_name**: Name for the new feature
 - **description**: Explanation of the feature
 - **columns**: List of column names (1 for unary, 1–2 for binary)
-- **parameters**: Optional parameters (e.g., ``{"constant": 2.0}`` for binary ops, ``{"power": 0.5}`` for pow, ``{"n_bins": 5}`` for bin)
+- **parameters**: Optional parameters (e.g., ``{"constant": 2.0}`` for binary ops, ``{"power": 0.5}`` for pow)
 
 Supported transformations:
 
 **Binary** (column-column or column-constant): ``add``, ``sub``, ``mul``, ``div``
 
 **Unary**: ``log``, ``log1p``, ``abs``, ``exp``, ``pow``
-
-**Discretization**: ``bin`` — discretizes a numeric column into equal-width intervals.
-Parameters: ``n_bins`` (int, required) and optionally ``bin_edges`` (list of floats for custom boundaries).
 
 
 Production Pipeline with FeatureEngineeringTransformer

@@ -17,7 +17,9 @@ from skfeaturellm.transformations import TransformationPipeline
 from skfeaturellm.types import ProblemType
 
 
-class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
+class LLMFeatureEngineer(
+    BaseEstimator, TransformerMixin
+):  # pylint: disable=too-many-instance-attributes
     """
     A scikit-learn compatible transformer that uses LLMs for feature engineering.
 
@@ -33,6 +35,9 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         Maximum number of features to generate
     feature_prefix : str
         Prefix to add to generated feature names
+    verbose : int, default=0
+        Verbosity level for fit_selective().
+        0 = silent, 1 = one line per round, 2 = include selected feature names.
     **kwargs
         Additional keyword arguments for the LLMInterface
     """
@@ -44,6 +49,7 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         target_col: Optional[str] = None,
         max_features: Optional[int] = None,
         feature_prefix: str = "llm_feat_",
+        verbose: int = 0,
         **kwargs,
     ):
         self.problem_type = ProblemType(problem_type)
@@ -51,6 +57,7 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         self.target_col = target_col
         self.max_features = max_features
         self.feature_prefix = feature_prefix
+        self.verbose = verbose
         self.llm_interface = LLMInterface(model_name=model_name, **kwargs)
         self.generated_features: List[FeatureEngineeringIdea] = []
         self.feature_evaluator = FeatureEvaluator(self.problem_type)
@@ -258,7 +265,16 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         all_selected_ideas: List[Any] = []
         feedback_context = None
 
-        for _ in range(n_rounds):
+        for round_idx in range(n_rounds):
+            if self.verbose == 1:
+                print(
+                    f"[fit_selective] Round {round_idx + 1}/{n_rounds}: querying LLM...",
+                    flush=True,
+                )
+            elif self.verbose >= 2:
+                print(f"[fit_selective] Round {round_idx + 1}/{n_rounds}")
+                print("  Querying LLM...", flush=True)
+
             ideas_result, conversation_history = (
                 self.llm_interface.generate_engineered_features_iterative(
                     prompt_context=prompt_context,
@@ -267,16 +283,42 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
                 )
             )
 
+            if self.verbose >= 2:
+                print(f"  Generated {len(ideas_result.ideas)} idea(s)")
+
             selected, rejected, scores = self._run_selector(
                 X, y, ideas_result.ideas, selector, X_eval, y_eval
             )
             all_selected_ideas.extend(selected)
+
+            if self.verbose == 1:
+                print(
+                    f"[fit_selective] Round {round_idx + 1}/{n_rounds}: "
+                    f"generated={len(ideas_result.ideas)}, "
+                    f"selected={len(selected)}, "
+                    f"rejected={len(rejected)}"
+                )
+            elif self.verbose >= 2:
+                print(f"  Selected: {len(selected)} | Rejected: {len(rejected)}")
+                for idea in selected:
+                    score = scores.get(f"{self.feature_prefix}{idea.feature_name}")
+                    score_str = f"  score={score:.4g}" if score is not None else ""
+                    print(f"    + {self.feature_prefix}{idea.feature_name}{score_str}")
+                for idea in rejected:
+                    score = scores.get(f"{self.feature_prefix}{idea.feature_name}")
+                    score_str = f"  score={score:.4g}" if score is not None else ""
+                    print(f"    - {self.feature_prefix}{idea.feature_name}{score_str}")
 
             feedback_context = self._build_feedback_context(
                 selected_ideas=selected,
                 rejected_ideas=rejected,
                 scores=scores,
                 max_features=self.max_features or 10,
+            )
+
+        if self.verbose >= 1:
+            print(
+                f"[fit_selective] Done. Total selected features: {len(all_selected_ideas)}"
             )
 
         self.generated_features_ideas = all_selected_ideas
@@ -303,6 +345,9 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
         selected_ideas, rejected_ideas, scores
             ``scores`` maps prefixed feature names to raw selector scores.
         """
+        if self.verbose >= 2:
+            print("  Applying transformations...", flush=True)
+
         executor_config = self._build_executor_config(ideas)
         executor = TransformationPipeline.from_dict(
             executor_config, raise_on_error=False
@@ -323,6 +368,15 @@ class LLMFeatureEngineer(BaseEstimator, TransformerMixin):
             for idea, name in zip(ideas, expected_names)
             if name in X_transformed.columns
         ]
+
+        if self.verbose >= 2:
+            n_orig = len(X_transformed.columns) - len(created_pairs)
+            print(
+                f"  Created {len(created_pairs)}/{len(ideas)} feature(s). "
+                f"Running selector on {len(X_transformed.columns)} feature(s) "
+                f"({n_orig} original + {len(created_pairs)} new)...",
+                flush=True,
+            )
 
         if not created_pairs:
             return [], list(ideas), {}

@@ -79,3 +79,20 @@ Binary column-constant operation (scaling):
 
 Make sure to use the EXACT column names from the dataset provided above.
 """
+
+SELECTION_FEEDBACK_PROMPT = """Here are the results of evaluating the features you generated in the previous round \
+using a feature selector on the training data and validated on unseen data:
+
+## Features Selected (kept)
+{selected_features_table}
+
+## Features Rejected (not selected)
+{rejected_features_table}
+
+Based on this feedback:
+- Do NOT re-generate features similar to the rejected ones
+- You may refine or build on ideas from the selected features if useful
+- Focus on exploring different transformations and column combinations
+
+Generate up to {max_features} NEW feature engineering ideas.
+"""

@@ -2,7 +2,6 @@
 Main module for LLM-powered feature engineering.
 """
 
-import warnings
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
@@ -12,9 +11,11 @@ from sklearn.feature_selection import SelectorMixin
 from skfeaturellm.feature_engineering_transformer import FeatureEngineeringTransformer
 from skfeaturellm.feature_evaluation import FeatureEvaluationResult, FeatureEvaluator
 from skfeaturellm.llm_interface import LLMInterface
+from skfeaturellm.prompts import utils as prompt_utils
 from skfeaturellm.schemas import FeatureEngineeringIdea
 from skfeaturellm.transformations import TransformationPipeline
 from skfeaturellm.types import ProblemType
+from skfeaturellm.utils.validation import check_is_fitted
 
 
 class LLMFeatureEngineer(
@@ -59,8 +60,6 @@ class LLMFeatureEngineer(
         self.feature_prefix = feature_prefix
         self.verbose = verbose
         self.llm_interface = LLMInterface(model_name=model_name, **kwargs)
-        self.generated_features: List[FeatureEngineeringIdea] = []
-        self.feature_evaluator = FeatureEvaluator(self.problem_type)
 
     def fit(
         self,
@@ -95,18 +94,20 @@ class LLMFeatureEngineer(
                 for col in X.columns
             ]
 
-        dataset_statistics = LLMInterface._format_dataset_statistics(
+        dataset_statistics = prompt_utils.format_dataset_statistics(
             X, y, self.problem_type
         )
 
         # Generate feature engineering ideas
-        self.generated_features_ideas = self.llm_interface.generate_engineered_features(
-            feature_descriptions=feature_descriptions,
-            problem_type=self.problem_type.value,
-            target_description=target_description,
-            max_features=self.max_features,
-            dataset_statistics=dataset_statistics,
-        ).ideas
+        self.generated_features_ideas_ = (
+            self.llm_interface.generate_engineered_features(
+                feature_descriptions=feature_descriptions,
+                problem_type=self.problem_type.value,
+                target_description=target_description,
+                max_features=self.max_features,
+                dataset_statistics=dataset_statistics,
+            ).ideas
+        )
 
         return self
 
@@ -125,11 +126,10 @@ class LLMFeatureEngineer(
             Input dataframe with the generated features
         """
         # if fit has not been called, raise an error
-        if not hasattr(self, "generated_features_ideas"):
-            raise ValueError("fit must be called before transform")
+        check_is_fitted(self)
 
         # Convert LLM output to executor config and apply prefix to feature names
-        executor_config = self._build_executor_config(self.generated_features_ideas)
+        executor_config = self._build_executor_config(self.generated_features_ideas_)
 
         # Create executor with raise_on_error=False to skip failed transformations
         executor = TransformationPipeline.from_dict(
@@ -142,12 +142,13 @@ class LLMFeatureEngineer(
         # Track which features were successfully created
         expected_feature_names = [
             f"{self.feature_prefix}{idea.feature_name}"
-            for idea in self.generated_features_ideas
+            for idea in self.generated_features_ideas_
         ]
+
         self.generated_features = [
             idea
             for idea, expected_name in zip(
-                self.generated_features_ideas, expected_feature_names
+                self.generated_features_ideas_, expected_feature_names
             )
             if expected_name in result_df.columns
         ]
@@ -177,18 +178,18 @@ class LLMFeatureEngineer(
         ValueError
             If fit() has not been called yet.
         """
-        if not hasattr(self, "generated_features_ideas"):
-            raise ValueError("fit must be called before to_transformer")
+        check_is_fitted(self)
 
         ideas = self.generated_features
 
         if features is not None:
             features_set = set(features)
             ideas = [
-                idea
-                for idea in ideas
-                if idea.feature_name in features_set
-                or f"{self.feature_prefix}{idea.feature_name}" in features_set
+                generated_feature
+                for generated_feature in self.generated_features
+                if generated_feature.feature_name in features_set
+                or f"{self.feature_prefix}{generated_feature.feature_name}"
+                in features_set
             ]
 
         config = self._build_executor_config(ideas)
@@ -248,7 +249,7 @@ class LLMFeatureEngineer(
                 for col in X.columns
             ]
 
-        dataset_statistics = LLMInterface._format_dataset_statistics(
+        dataset_statistics = prompt_utils.format_dataset_statistics(
             X, y, self.problem_type
         )
         prompt_context = self.llm_interface.generate_prompt_context(
@@ -321,7 +322,7 @@ class LLMFeatureEngineer(
                 f"[fit_selective] Done. Total selected features: {len(all_selected_ideas)}"
             )
 
-        self.generated_features_ideas = all_selected_ideas
+        self.generated_features_ideas_ = all_selected_ideas
         return self
 
     def _run_selector(  # pylint: disable=too-many-arguments
@@ -490,9 +491,9 @@ class LLMFeatureEngineer(
         FeatureEvaluationResult
             Result object containing the evaluation metrics
         """
+        check_is_fitted(self)
 
-        if not hasattr(self, "generated_features_ideas"):
-            raise ValueError("fit must be called before evaluate_features")
+        feature_evaluator = FeatureEvaluator(self.problem_type)
 
         X_transformed = self.transform(X) if not is_transformed else X
 
@@ -501,6 +502,6 @@ class LLMFeatureEngineer(
             for idea in self.generated_features
         ]
 
-        return self.feature_evaluator.evaluate(
+        return feature_evaluator.evaluate(
             X_transformed, y, features=generated_features_names
         )

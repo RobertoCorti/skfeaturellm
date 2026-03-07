@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from skfeaturellm.llm_interface import LLMInterface
+from skfeaturellm.prompts import utils
 from skfeaturellm.schemas import FeatureEngineeringIdea
 from skfeaturellm.types import ProblemType
 
@@ -140,7 +141,7 @@ def test_format_dataset_statistics_regression(
 ):  # pylint: disable=redefined-outer-name
     """Target stats are min/max/mean/std; feature table and pearson_corr section present."""
     X, y = regression_xy
-    result = LLMInterface._format_dataset_statistics(X, y, ProblemType.REGRESSION)
+    result = utils.format_dataset_statistics(X, y, ProblemType.REGRESSION)
 
     assert "Target statistics:" in result
     assert (
@@ -158,7 +159,7 @@ def test_format_dataset_statistics_classification(
 ):  # pylint: disable=redefined-outer-name
     """Target stats show class counts; vs-target shows class-mean columns, not pearson_corr."""
     X, y = classification_xy
-    result = LLMInterface._format_dataset_statistics(X, y, ProblemType.CLASSIFICATION)
+    result = utils.format_dataset_statistics(X, y, ProblemType.CLASSIFICATION)
 
     assert "Target statistics:" in result
     assert "class 'cat'" in result
@@ -175,7 +176,7 @@ def test_format_dataset_statistics_no_target(
 ):  # pylint: disable=redefined-outer-name
     """When y is None, target block says 'Not provided.' and vs-target section is absent."""
     X, _ = regression_xy
-    result = LLMInterface._format_dataset_statistics(X, None, ProblemType.REGRESSION)
+    result = utils.format_dataset_statistics(X, None, ProblemType.REGRESSION)
 
     assert "Not provided." in result
     assert "Feature statistics (numeric columns):" in result
@@ -186,7 +187,7 @@ def test_format_dataset_statistics_no_numeric_cols():
     """When X has no numeric columns, feature block says 'No numeric features.'."""
     X = pd.DataFrame({"city": ["Paris", "Lyon", "Marseille"]})
     y = pd.Series([1.0, 2.0, 3.0], name="target")
-    result = LLMInterface._format_dataset_statistics(X, y, ProblemType.REGRESSION)
+    result = utils.format_dataset_statistics(X, y, ProblemType.REGRESSION)
 
     assert "No numeric features." in result
     assert "Feature statistics vs target:" not in result

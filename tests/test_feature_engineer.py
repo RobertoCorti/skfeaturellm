@@ -1,12 +1,12 @@
 """Tests for the LLMFeatureEngineer class."""
 
-import warnings
 from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
 import pytest
 
+from skfeaturellm.exceptions import NotFittedError
 from skfeaturellm.feature_engineer import LLMFeatureEngineer
 from skfeaturellm.schemas import FeatureEngineeringIdea
 from skfeaturellm.types import ProblemType
@@ -45,7 +45,6 @@ def test_initialization(mocker):
     assert engineer.target_col == "default"
     assert engineer.max_features == 3
     assert engineer.feature_prefix == "test_"
-    assert not engineer.generated_features
 
 
 def test_fit_no_features(
@@ -68,9 +67,9 @@ def test_fit_no_features(
     engineer = LLMFeatureEngineer(
         problem_type="classification", model_name="gpt-4o", model_provider="openai"
     )
-    engineer.generated_features_ideas = mock_generate.return_value  # Simulate fit
-    assert len(engineer.generated_features_ideas) == 1
-    assert engineer.generated_features_ideas[0].feature_name == "age_squared"
+    engineer.generated_features_ideas_ = mock_generate.return_value  # Simulate fit
+    assert len(engineer.generated_features_ideas_) == 1
+    assert engineer.generated_features_ideas_[0].feature_name == "age_squared"
     mock_generate.assert_not_called()  # Fit not called directly here
 
 
@@ -95,9 +94,9 @@ def test_fit_with_features(
     engineer = LLMFeatureEngineer(
         problem_type="classification", model_name="gpt-4o", model_provider="openai"
     )
-    engineer.generated_features_ideas = mock_generate.return_value  # Simulate fit
-    assert len(engineer.generated_features_ideas) == 1
-    assert engineer.generated_features_ideas[0].feature_name == "income_plus"
+    engineer.generated_features_ideas_ = mock_generate.return_value  # Simulate fit
+    assert len(engineer.generated_features_ideas_) == 1
+    assert engineer.generated_features_ideas_[0].feature_name == "income_plus"
     mock_generate.assert_not_called()
 
 
@@ -109,7 +108,10 @@ def test_transform_without_fit(
     engineer = LLMFeatureEngineer(
         problem_type="classification", model_name="gpt-4o", model_provider="openai"
     )
-    with pytest.raises(ValueError, match="fit must be called before transform"):
+    with pytest.raises(
+        NotFittedError,
+        match="This LLMFeatureEngineer instance is not fitted yet. Call 'fit' with appropriate arguments before using this estimator.",
+    ):
         engineer.transform(sample_data_frame)
 
 
@@ -134,7 +136,7 @@ def test_transform_valid_feature(
     engineer = LLMFeatureEngineer(
         problem_type="classification", model_name="gpt-4o", feature_prefix="llm_feat_"
     )
-    engineer.generated_features_ideas = mock_generate.return_value  # Simulate fit
+    engineer.generated_features_ideas_ = mock_generate.return_value  # Simulate fit
     transformed_data = engineer.transform(sample_data_frame)
 
     assert "llm_feat_age_double" in transformed_data.columns
@@ -162,7 +164,7 @@ def test_transform_invalid_feature(
     engineer = LLMFeatureEngineer(
         problem_type="classification", model_name="gpt-4o", model_provider="openai"
     )
-    engineer.generated_features_ideas = mock_generate.return_value  # Simulate fit
+    engineer.generated_features_ideas_ = mock_generate.return_value  # Simulate fit
 
     # Transform should skip invalid features with a warning
     with pytest.warns(UserWarning):
@@ -196,8 +198,8 @@ def test_fit_generates_ideas(
     engineer.fit(sample_data_frame)
 
     mock_generate.assert_called_once()
-    assert len(engineer.generated_features_ideas) == 1
-    assert engineer.generated_features_ideas[0].feature_name == "age_double"
+    assert len(engineer.generated_features_ideas_) == 1
+    assert engineer.generated_features_ideas_[0].feature_name == "age_double"
 
 
 def test_fit_auto_extracts_feature_descriptions(
@@ -257,7 +259,10 @@ def test_evaluate_features_without_fit_raises(
     engineer = LLMFeatureEngineer(problem_type="regression", model_name="gpt-4o")
     y = pd.Series([1, 2], name="target")
 
-    with pytest.raises(ValueError, match="fit must be called before evaluate_features"):
+    with pytest.raises(
+        NotFittedError,
+        match="This LLMFeatureEngineer instance is not fitted yet. Call 'fit' with appropriate arguments before using this estimator.",
+    ):
         engineer.evaluate_features(sample_data_frame, y)
 
 
@@ -283,12 +288,12 @@ def test_evaluate_features_is_transformed_false(
     engineer = LLMFeatureEngineer(
         problem_type="regression", model_name="gpt-4o", feature_prefix="llm_feat_"
     )
-    engineer.generated_features_ideas = [idea]
+    engineer.generated_features_ideas_ = [idea]
     y = pd.Series([1, 2], name="target")
 
     result = engineer.evaluate_features(sample_data_frame, y, is_transformed=False)
 
-    assert "llm_feat_age_double" in engineer.generated_features_ideas[0].feature_name
+    assert "llm_feat_age_double" in engineer.generated_features_ideas_[0].feature_name
     assert result is not None
 
 
@@ -308,7 +313,7 @@ def test_evaluate_features_is_transformed_true(
     engineer = LLMFeatureEngineer(
         problem_type="regression", model_name="gpt-4o", feature_prefix="llm_feat_"
     )
-    engineer.generated_features_ideas = [idea]
+    engineer.generated_features_ideas_ = [idea]
     engineer.generated_features = [idea]
 
     transform_spy = mocker.patch.object(engineer, "transform", wraps=engineer.transform)
@@ -372,7 +377,10 @@ def test_to_transformer_before_fit_raises(mocker):
     """to_transformer() raises ValueError if fit() has not been called."""
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
     engineer = LLMFeatureEngineer(problem_type="classification")
-    with pytest.raises(ValueError, match="fit must be called before to_transformer"):
+    with pytest.raises(
+        NotFittedError,
+        match="This LLMFeatureEngineer instance is not fitted yet. Call 'fit' with appropriate arguments before using this estimator.",
+    ):
         engineer.to_transformer()
 
 
@@ -539,8 +547,8 @@ def test_fit_selective_populates_generated_features_ideas(
     engineer_mocked.fit_selective(numeric_data_frame, y, selector=selector, n_rounds=1)
 
     # k=1 keeps exactly one feature across all features (original + new)
-    assert hasattr(engineer_mocked, "generated_features_ideas")
-    assert len(engineer_mocked.generated_features_ideas) <= 1
+    assert hasattr(engineer_mocked, "generated_features_ideas_")
+    assert len(engineer_mocked.generated_features_ideas_) <= 1
 
 
 def test_fit_selective_with_eval_set(

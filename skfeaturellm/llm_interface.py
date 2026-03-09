@@ -2,13 +2,14 @@
 Module for handling interactions with Language Models.
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
-import pandas as pd
 from langchain.chat_models import init_chat_model
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
 
-from skfeaturellm.prompts import FEATURE_ENGINEERING_PROMPT
+from skfeaturellm.prompts import FEATURE_ENGINEERING_PROMPT, SELECTION_FEEDBACK_PROMPT
+from skfeaturellm.prompts import utils as prompt_utils
 from skfeaturellm.schemas import (
     FeatureDescription,
     FeatureDescriptions,
@@ -77,7 +78,7 @@ class LLMInterface:
         max_features : Optional[int]
             Maximum number of features to generate
         dataset_statistics : Optional[str]
-            Pre-formatted dataset statistics string from _format_dataset_statistics
+            Pre-formatted dataset statistics string
 
         Returns
         -------
@@ -85,7 +86,7 @@ class LLMInterface:
             Generated feature engineering ideas
         """
 
-        prompt_context = self.generate_prompt_context(
+        prompt_context = prompt_utils.generate_prompt_context(
             feature_descriptions=feature_descriptions,
             target_description=target_description,
             problem_type=problem_type,
@@ -94,28 +95,6 @@ class LLMInterface:
         )
 
         return self.chain.invoke(prompt_context)
-
-    def _format_feature_descriptions(self, features: List[FeatureDescription]) -> str:
-        """
-        Format feature descriptions in a human-readable way.
-
-        Parameters
-        ----------
-        features : List[FeatureDescription]
-            List of feature descriptions
-
-        Returns
-        -------
-        str
-            Formatted feature descriptions
-        """
-        formatted_features = []
-        for feature in features:
-            formatted_feature = (
-                f"- {feature.name} ({feature.type}): {feature.description}"
-            )
-            formatted_features.append(formatted_feature)
-        return "\n".join(formatted_features)
 
     def generate_prompt_context(
         self,
@@ -184,52 +163,39 @@ class LLMInterface:
             "binary_types": binary_types,
         }
 
-    @staticmethod
-    def _format_dataset_statistics(
-        X: pd.DataFrame,
-        y: Optional[pd.Series],
-        problem_type: Optional[ProblemType],
-    ) -> str:
-        """Format dataset statistics as human-readable text for the LLM prompt."""
-        lines: List[str] = []
+    def generate_engineered_features_iterative(
+        self,
+        prompt_context: Dict,
+        conversation_history: List[BaseMessage],
+        feedback_context: Optional[Dict] = None,
+    ) -> Tuple[FeatureEngineeringIdeas, List[BaseMessage]]:
+        """
+        Generate feature engineering ideas in an iterative conversation.
 
-        # Target statistics
-        lines.append("Target statistics:")
-        if y is None:
-            lines.append("  Not provided.")
-        elif problem_type == ProblemType.REGRESSION:
-            lines.append(
-                f"  min={y.min():.4g}, max={y.max():.4g}, "
-                f"mean={y.mean():.4g}, std={y.std():.4g}"
-            )
+        Parameters
+        ----------
+        prompt_context : Dict
+            Prompt context dict
+        conversation_history : List[BaseMessage]
+            Accumulated conversation messages. Empty on the first round.
+        feedback_context : Optional[Dict]
+            Feedback dict with keys ``selected_features_table``,
+            ``rejected_features_table``, and ``max_features``. Required for
+            rounds after the first.
+
+        Returns
+        -------
+        Tuple[FeatureEngineeringIdeas, List[BaseMessage]]
+            The generated ideas and the updated conversation history
+            (input messages + AI response appended).
+        """
+        if not conversation_history:
+            messages = self.prompt_template.format_messages(**prompt_context)
         else:
-            counts = y.value_counts()
-            total = len(y)
-            for label, count in counts.items():
-                pct = 100.0 * count / total
-                lines.append(f"  class '{label}': {count} samples ({pct:.1f}%)")
+            feedback_message = SELECTION_FEEDBACK_PROMPT.format(**feedback_context)
+            messages = conversation_history + [HumanMessage(content=feedback_message)]
 
-        lines.append("")
+        ideas = self.llm.invoke(messages)
+        updated_history = messages + [AIMessage(content=ideas.model_dump_json())]
 
-        # Feature statistics — numeric columns only
-        numeric_cols = X.select_dtypes(include="number").columns.tolist()
-        lines.append("Feature statistics (numeric columns):")
-        if not numeric_cols:
-            lines.append("  No numeric features.")
-        else:
-            stats = X[numeric_cols].describe()
-            stats.loc["skewness"] = X[numeric_cols].skew()
-            lines.append(stats.T.to_markdown(floatfmt=".4g"))
-
-        # Feature statistics vs target
-        if y is not None and numeric_cols:
-            lines.append("")
-            lines.append("Feature statistics vs target:")
-            if problem_type == ProblemType.REGRESSION:
-                corr_df = X[numeric_cols].corrwith(y).to_frame(name="pearson_corr")
-                lines.append(corr_df.to_markdown(floatfmt=".4g"))
-            else:
-                grouped = X.groupby(y)[numeric_cols].mean().T
-                lines.append(grouped.to_markdown(floatfmt=".4g"))
-
-        return "\n".join(lines)
+        return ideas, updated_history

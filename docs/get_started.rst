@@ -27,6 +27,8 @@ The code snippets below introduce ``skfeaturellm``'s core workflow. Both example
 2. Call ``fit()`` on the training set only, passing ``y`` so that dataset statistics are injected into the LLM prompt.
 3. Call ``transform()`` on each split independently.
 
+For an automated multi-round generate → select → feedback loop, use ``fit_selective()`` instead of ``fit()``. See the :doc:`user_guide` for details.
+
 .. note::
    Always fit on training data only to avoid leaking test-set information into the LLM prompt.
 

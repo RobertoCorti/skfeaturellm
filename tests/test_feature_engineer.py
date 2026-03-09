@@ -1,11 +1,12 @@
 """Tests for the LLMFeatureEngineer class."""
 
-import warnings
 from unittest.mock import Mock
 
+import numpy as np
 import pandas as pd
 import pytest
 
+from skfeaturellm.exceptions import NotFittedError
 from skfeaturellm.feature_engineer import LLMFeatureEngineer
 from skfeaturellm.schemas import FeatureEngineeringIdea
 from skfeaturellm.types import ProblemType
@@ -44,7 +45,6 @@ def test_initialization(mocker):
     assert engineer.target_col == "default"
     assert engineer.max_features == 3
     assert engineer.feature_prefix == "test_"
-    assert not engineer.generated_features
 
 
 def test_fit_no_features(
@@ -67,9 +67,9 @@ def test_fit_no_features(
     engineer = LLMFeatureEngineer(
         problem_type="classification", model_name="gpt-4o", model_provider="openai"
     )
-    engineer.generated_features_ideas = mock_generate.return_value  # Simulate fit
-    assert len(engineer.generated_features_ideas) == 1
-    assert engineer.generated_features_ideas[0].feature_name == "age_squared"
+    engineer.generated_features_ideas_ = mock_generate.return_value  # Simulate fit
+    assert len(engineer.generated_features_ideas_) == 1
+    assert engineer.generated_features_ideas_[0].feature_name == "age_squared"
     mock_generate.assert_not_called()  # Fit not called directly here
 
 
@@ -94,9 +94,9 @@ def test_fit_with_features(
     engineer = LLMFeatureEngineer(
         problem_type="classification", model_name="gpt-4o", model_provider="openai"
     )
-    engineer.generated_features_ideas = mock_generate.return_value  # Simulate fit
-    assert len(engineer.generated_features_ideas) == 1
-    assert engineer.generated_features_ideas[0].feature_name == "income_plus"
+    engineer.generated_features_ideas_ = mock_generate.return_value  # Simulate fit
+    assert len(engineer.generated_features_ideas_) == 1
+    assert engineer.generated_features_ideas_[0].feature_name == "income_plus"
     mock_generate.assert_not_called()
 
 
@@ -108,7 +108,10 @@ def test_transform_without_fit(
     engineer = LLMFeatureEngineer(
         problem_type="classification", model_name="gpt-4o", model_provider="openai"
     )
-    with pytest.raises(ValueError, match="fit must be called before transform"):
+    with pytest.raises(
+        NotFittedError,
+        match="This LLMFeatureEngineer instance is not fitted yet. Call 'fit' with appropriate arguments before using this estimator.",
+    ):
         engineer.transform(sample_data_frame)
 
 
@@ -133,7 +136,7 @@ def test_transform_valid_feature(
     engineer = LLMFeatureEngineer(
         problem_type="classification", model_name="gpt-4o", feature_prefix="llm_feat_"
     )
-    engineer.generated_features_ideas = mock_generate.return_value  # Simulate fit
+    engineer.generated_features_ideas_ = mock_generate.return_value  # Simulate fit
     transformed_data = engineer.transform(sample_data_frame)
 
     assert "llm_feat_age_double" in transformed_data.columns
@@ -161,7 +164,7 @@ def test_transform_invalid_feature(
     engineer = LLMFeatureEngineer(
         problem_type="classification", model_name="gpt-4o", model_provider="openai"
     )
-    engineer.generated_features_ideas = mock_generate.return_value  # Simulate fit
+    engineer.generated_features_ideas_ = mock_generate.return_value  # Simulate fit
 
     # Transform should skip invalid features with a warning
     with pytest.warns(UserWarning):
@@ -195,8 +198,8 @@ def test_fit_generates_ideas(
     engineer.fit(sample_data_frame)
 
     mock_generate.assert_called_once()
-    assert len(engineer.generated_features_ideas) == 1
-    assert engineer.generated_features_ideas[0].feature_name == "age_double"
+    assert len(engineer.generated_features_ideas_) == 1
+    assert engineer.generated_features_ideas_[0].feature_name == "age_double"
 
 
 def test_fit_auto_extracts_feature_descriptions(
@@ -256,7 +259,10 @@ def test_evaluate_features_without_fit_raises(
     engineer = LLMFeatureEngineer(problem_type="regression", model_name="gpt-4o")
     y = pd.Series([1, 2], name="target")
 
-    with pytest.raises(ValueError, match="fit must be called before evaluate_features"):
+    with pytest.raises(
+        NotFittedError,
+        match="This LLMFeatureEngineer instance is not fitted yet. Call 'fit' with appropriate arguments before using this estimator.",
+    ):
         engineer.evaluate_features(sample_data_frame, y)
 
 
@@ -282,12 +288,12 @@ def test_evaluate_features_is_transformed_false(
     engineer = LLMFeatureEngineer(
         problem_type="regression", model_name="gpt-4o", feature_prefix="llm_feat_"
     )
-    engineer.generated_features_ideas = [idea]
+    engineer.generated_features_ideas_ = [idea]
     y = pd.Series([1, 2], name="target")
 
     result = engineer.evaluate_features(sample_data_frame, y, is_transformed=False)
 
-    assert "llm_feat_age_double" in engineer.generated_features_ideas[0].feature_name
+    assert "llm_feat_age_double" in engineer.generated_features_ideas_[0].feature_name
     assert result is not None
 
 
@@ -307,7 +313,7 @@ def test_evaluate_features_is_transformed_true(
     engineer = LLMFeatureEngineer(
         problem_type="regression", model_name="gpt-4o", feature_prefix="llm_feat_"
     )
-    engineer.generated_features_ideas = [idea]
+    engineer.generated_features_ideas_ = [idea]
     engineer.generated_features = [idea]
 
     transform_spy = mocker.patch.object(engineer, "transform", wraps=engineer.transform)
@@ -371,7 +377,10 @@ def test_to_transformer_before_fit_raises(mocker):
     """to_transformer() raises ValueError if fit() has not been called."""
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
     engineer = LLMFeatureEngineer(problem_type="classification")
-    with pytest.raises(ValueError, match="fit must be called before to_transformer"):
+    with pytest.raises(
+        NotFittedError,
+        match="This LLMFeatureEngineer instance is not fitted yet. Call 'fit' with appropriate arguments before using this estimator.",
+    ):
         engineer.to_transformer()
 
 
@@ -442,6 +451,221 @@ def test_to_transformer_filter_by_prefixed_name(mocker, sample_data_frame):
 
     assert len(transformer.transformations) == 1
     assert transformer.transformations[0]["feature_name"] == "llm_feat_age_double"
+
+
+# =============================================================================
+# Test: fit_selective(), _run_selector(), _build_feedback_context()
+# =============================================================================
+
+
+@pytest.fixture
+def numeric_data_frame():
+    """Numeric-only DataFrame for tests that use sklearn selectors."""
+    return pd.DataFrame({"age": [25, 30], "income": [50000, 60000]})
+
+
+@pytest.fixture
+def engineer_mocked(mocker):
+    """LLMFeatureEngineer with mocked LLM, ready for fit_selective tests."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    return LLMFeatureEngineer(
+        problem_type="classification", model_name="gpt-4o", feature_prefix="llm_feat_"
+    )
+
+
+@pytest.fixture
+def ideas_age_double():
+    """One valid idea: multiply age by 2."""
+    return FeatureEngineeringIdea(
+        type="mul",
+        feature_name="age_double",
+        columns=["age"],
+        parameters={"constant": 2.0},
+        description="Double the age",
+    )
+
+
+@pytest.fixture
+def ideas_income_log():
+    """One valid idea: log of income."""
+    return FeatureEngineeringIdea(
+        type="log",
+        feature_name="log_income",
+        columns=["income"],
+        description="Log of income",
+    )
+
+
+def _make_ideas_result(ideas):
+    from skfeaturellm.schemas import FeatureEngineeringIdeas
+
+    return FeatureEngineeringIdeas(ideas=ideas)
+
+
+def test_fit_selective_calls_llm_n_rounds(
+    mocker, engineer_mocked, numeric_data_frame, ideas_age_double
+):  # pylint: disable=redefined-outer-name
+    """fit_selective() calls generate_engineered_features_iterative exactly n_rounds times."""
+    from sklearn.feature_selection import SelectKBest, f_classif
+
+    ideas_result = _make_ideas_result([ideas_age_double])
+    mock_iterative = mocker.patch.object(
+        engineer_mocked.llm_interface,
+        "generate_engineered_features_iterative",
+        return_value=(ideas_result, []),
+    )
+    mocker.patch.object(
+        engineer_mocked.llm_interface, "generate_prompt_context", return_value={}
+    )
+
+    y = pd.Series([0, 1], name="target")
+    selector = SelectKBest(f_classif, k=1)
+    engineer_mocked.fit_selective(numeric_data_frame, y, selector=selector, n_rounds=3)
+
+    assert mock_iterative.call_count == 3
+
+
+def test_fit_selective_populates_generated_features_ideas(
+    mocker, engineer_mocked, numeric_data_frame, ideas_age_double, ideas_income_log
+):  # pylint: disable=redefined-outer-name
+    """fit_selective() keeps only selected ideas in generated_features_ideas."""
+    from sklearn.feature_selection import SelectKBest, f_classif
+
+    # Round produces two ideas; selector keeps only the one with highest score
+    ideas_result = _make_ideas_result([ideas_age_double, ideas_income_log])
+    mocker.patch.object(
+        engineer_mocked.llm_interface,
+        "generate_engineered_features_iterative",
+        return_value=(ideas_result, []),
+    )
+    mocker.patch.object(
+        engineer_mocked.llm_interface, "generate_prompt_context", return_value={}
+    )
+
+    y = pd.Series([0, 1], name="target")
+    selector = SelectKBest(f_classif, k=1)
+    engineer_mocked.fit_selective(numeric_data_frame, y, selector=selector, n_rounds=1)
+
+    # k=1 keeps exactly one feature across all features (original + new)
+    assert hasattr(engineer_mocked, "generated_features_ideas_")
+    assert len(engineer_mocked.generated_features_ideas_) <= 1
+
+
+def test_fit_selective_with_eval_set(
+    mocker, engineer_mocked, numeric_data_frame, ideas_age_double
+):  # pylint: disable=redefined-outer-name
+    """When eval_set is provided, _run_selector uses X_eval for selection."""
+    from sklearn.feature_selection import SelectKBest, f_classif
+
+    ideas_result = _make_ideas_result([ideas_age_double])
+    mocker.patch.object(
+        engineer_mocked.llm_interface,
+        "generate_engineered_features_iterative",
+        return_value=(ideas_result, []),
+    )
+    mocker.patch.object(
+        engineer_mocked.llm_interface, "generate_prompt_context", return_value={}
+    )
+
+    run_selector_spy = mocker.spy(engineer_mocked, "_run_selector")
+
+    X_val = pd.DataFrame({"age": [28, 33], "income": [55000, 65000]})
+    y_train = pd.Series([0, 1], name="target")
+    y_val = pd.Series([1, 0], name="target")
+
+    selector = SelectKBest(f_classif, k=1)
+    engineer_mocked.fit_selective(
+        numeric_data_frame,
+        y_train,
+        selector=selector,
+        n_rounds=1,
+        eval_set=(X_val, y_val),
+    )
+
+    _, _, _, _, X_eval_arg, y_eval_arg = run_selector_spy.call_args[0]
+    assert X_eval_arg is X_val
+    assert y_eval_arg is y_val
+
+
+def test_run_selector_fits_on_all_features(
+    mocker, engineer_mocked, numeric_data_frame, ideas_age_double
+):  # pylint: disable=redefined-outer-name
+    """_run_selector fits the selector on all columns (original + new), not just new ones."""
+    from sklearn.feature_selection import SelectKBest
+
+    mock_selector = mocker.MagicMock(spec=SelectKBest)
+    # 3 cols: age, income, llm_feat_age_double — new feature is index 2
+    mock_selector.get_support.return_value = np.array([False, False, True])
+    mock_selector.scores_ = np.array([0.1, 0.2, 0.9])
+
+    y = pd.Series([0, 1], name="target")
+    engineer_mocked._run_selector(
+        numeric_data_frame, y, [ideas_age_double], mock_selector
+    )
+
+    fit_call_X = mock_selector.fit.call_args[0][0]
+    # Selector must have been fit on a DataFrame that includes original columns
+    assert "age" in fit_call_X.columns
+    assert "income" in fit_call_X.columns
+    assert "llm_feat_age_double" in fit_call_X.columns
+
+
+def test_run_selector_no_created_features_returns_all_rejected(
+    mocker, engineer_mocked, numeric_data_frame
+):  # pylint: disable=redefined-outer-name
+    """When no new features are created (bad columns), all ideas go to rejected."""
+    from sklearn.feature_selection import SelectKBest, f_classif
+
+    bad_idea = FeatureEngineeringIdea(
+        type="add",
+        feature_name="bad_feat",
+        columns=["nonexistent_col"],
+        parameters={"constant": 1.0},
+        description="Uses a column that does not exist",
+    )
+    y = pd.Series([0, 1], name="target")
+    selector = SelectKBest(f_classif, k=1)
+
+    with pytest.warns(UserWarning):
+        selected, rejected, scores = engineer_mocked._run_selector(
+            numeric_data_frame, y, [bad_idea], selector
+        )
+
+    assert selected == []
+    assert len(rejected) == 1
+    assert scores == {}
+
+
+def test_build_feedback_context_contains_feature_names(
+    engineer_mocked,
+    ideas_age_double,
+    ideas_income_log,  # pylint: disable=redefined-outer-name
+):
+    """_build_feedback_context() markdown tables contain the feature names."""
+    scores = {"llm_feat_age_double": 0.85, "llm_feat_log_income": 0.12}
+    ctx = engineer_mocked._build_feedback_context(
+        selected_ideas=[ideas_age_double],
+        rejected_ideas=[ideas_income_log],
+        scores=scores,
+        max_features=5,
+    )
+
+    assert "llm_feat_age_double" in ctx["selected_features_table"]
+    assert "llm_feat_log_income" in ctx["rejected_features_table"]
+    assert ctx["max_features"] == 5
+
+
+def test_build_feedback_context_empty_lists(engineer_mocked):
+    """_build_feedback_context() with no ideas produces 'None' tables."""
+    ctx = engineer_mocked._build_feedback_context(
+        selected_ideas=[],
+        rejected_ideas=[],
+        scores={},
+        max_features=3,
+    )
+
+    assert ctx["selected_features_table"] == "None"
+    assert ctx["rejected_features_table"] == "None"
 
 
 def test_to_transformer_filter_by_unprefixed_name(mocker, sample_data_frame):

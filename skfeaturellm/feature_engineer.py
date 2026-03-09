@@ -139,20 +139,6 @@ class LLMFeatureEngineer(
         # Execute transformations
         result_df = executor.fit(X).transform(X)
 
-        # Track which features were successfully created
-        expected_feature_names = [
-            f"{self.feature_prefix}{idea.feature_name}"
-            for idea in self.generated_features_ideas_
-        ]
-
-        self.generated_features = [
-            idea
-            for idea, expected_name in zip(
-                self.generated_features_ideas_, expected_feature_names
-            )
-            if expected_name in result_df.columns
-        ]
-
         return result_df
 
     def to_transformer(
@@ -180,13 +166,13 @@ class LLMFeatureEngineer(
         """
         check_is_fitted(self)
 
-        ideas = self.generated_features
+        ideas = self.generated_features_ideas_
 
         if features is not None:
             features_set = set(features)
             ideas = [
                 generated_feature
-                for generated_feature in self.generated_features
+                for generated_feature in self.generated_features_ideas_
                 if generated_feature.feature_name in features_set
                 or f"{self.feature_prefix}{generated_feature.feature_name}"
                 in features_set
@@ -499,7 +485,7 @@ class LLMFeatureEngineer(
 
         generated_features_names = [
             f"{self.feature_prefix}{idea.feature_name}"
-            for idea in self.generated_features
+            for idea in self.generated_features_ideas_
         ]
 
         return feature_evaluator.evaluate(

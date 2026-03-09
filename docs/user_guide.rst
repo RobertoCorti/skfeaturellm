@@ -16,6 +16,8 @@ Workflow
 3. **Evaluate** (optional): Score each generated feature with mutual information or correlation to select only the beneficial ones.
 4. **Export to Production** (optional): Convert the selected features into a ``FeatureEngineeringTransformer`` for use inside scikit-learn pipelines, cross-validation, or serialized deployments.
 
+For an automated generate → select → feedback loop, use ``fit_selective()`` instead of ``fit()`` (see :ref:`iterative-feature-selection`).
+
 .. note::
    Always call ``fit()`` on **training data only** to prevent data leakage.
 
@@ -84,7 +86,7 @@ After evaluating and selecting features, call ``to_transformer()`` to export the
     # --- Exploration phase ---
     engineer = LLMFeatureEngineer(problem_type="classification", model_name="gpt-4o")
     engineer.fit(X_train, y=y_train)
-    engineer.transform(X_train)  # populates engineer.generated_features
+    engineer.transform(X_train)  # populates engineer.generated_features_ideas_
 
     # Export selected features (or all of them) to a production transformer
     transformer = engineer.to_transformer()
@@ -118,6 +120,57 @@ Serialize the transformer to JSON so the LLM is never called again in production
     loaded = FeatureEngineeringTransformer.load("transformer.json")
     pipeline = Pipeline([("features", loaded), ("model", XGBClassifier())])
     pipeline.fit(X_train, y_train)
+
+
+.. _iterative-feature-selection:
+
+Iterative Feature Selection with ``fit_selective()``
+-----------------------------------------------------
+``fit_selective()`` automates a multi-round generate → select → feedback loop. In each round the LLM proposes new features, a scikit-learn–compatible selector decides which ones to keep, and the selection results are fed back to the LLM as context for the next round. Only the features that survive selection are retained in ``generated_features_ideas_``.
+
+**When to use it:** when you want the LLM to iteratively refine its proposals based on quantitative selection feedback, without manually calling ``fit()`` / ``evaluate_features()`` / ``fit()`` in a loop.
+
+Parameters:
+
+- **selector**: Any initialised scikit-learn ``SelectorMixin`` (e.g. ``SelectKBest(k=5)``, ``SelectFromModel(RandomForestClassifier())``).
+- **n_rounds** *(default 3)*: Number of generate → select → feedback rounds.
+- **eval_set** *(optional)*: ``(X_val, y_val)`` — when provided, the selector is fitted on validation features so selection reflects generalisation.
+- **verbose**: Inherited from ``LLMFeatureEngineer``. ``0`` = silent, ``1`` = one line per round, ``≥2`` = detailed per-round output.
+
+.. code-block:: python
+
+    from sklearn.feature_selection import SelectKBest, f_classif
+    from sklearn.model_selection import train_test_split
+    from skfeaturellm import LLMFeatureEngineer
+
+    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    engineer = LLMFeatureEngineer(
+        problem_type="classification",
+        model_name="gpt-4o",
+        max_features=10,
+        verbose=1,
+    )
+
+    engineer.fit_selective(
+        X=X_train,
+        y=y_train,
+        selector=SelectKBest(score_func=f_classif, k=5),
+        n_rounds=3,
+        eval_set=(X_val, y_val),
+        feature_descriptions=feature_descriptions,
+        target_description=target_description,
+    )
+
+    # Transform as usual — only selected features are applied
+    X_train_transformed = engineer.transform(X_train)
+    X_val_transformed = engineer.transform(X_val)
+
+    # Export for production
+    transformer = engineer.to_transformer()
+
+.. note::
+   ``fit_selective()`` sets the same fitted state as ``fit()``. You can call ``transform()``, ``evaluate_features()``, and ``to_transformer()`` on the result exactly as you would after a regular ``fit()``.
 
 
 API Keys and Provider Configuration

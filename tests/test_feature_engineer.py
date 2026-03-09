@@ -693,3 +693,123 @@ def test_to_transformer_filter_by_unprefixed_name(mocker, sample_data_frame):
 
     assert len(transformer.transformations) == 1
     assert transformer.transformations[0]["feature_name"] == "llm_feat_age_double"
+# =============================================================================
+# Test: Input validation (new)
+# =============================================================================
+
+
+def test_init_invalid_max_features(mocker):
+    """__init__() raises ValueError for invalid max_features."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    with pytest.raises(ValueError, match="max_features must be a positive integer"):
+        LLMFeatureEngineer(problem_type="classification", max_features=0)
+
+
+def test_init_invalid_verbose(mocker):
+    """__init__() raises ValueError for negative verbose."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    with pytest.raises(ValueError, match="verbose must be a non-negative integer"):
+        LLMFeatureEngineer(problem_type="classification", verbose=-1)
+
+
+def test_fit_invalid_X_not_dataframe(mocker):
+    """fit() raises ValueError when X is not a DataFrame."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    engineer = LLMFeatureEngineer(problem_type="classification")
+    with pytest.raises(ValueError, match="X must be a pandas DataFrame"):
+        engineer.fit([[1, 2], [3, 4]])
+
+
+def test_fit_invalid_X_empty(mocker):
+    """fit() raises ValueError when X is empty."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    engineer = LLMFeatureEngineer(problem_type="classification")
+    with pytest.raises(ValueError, match="X must not be empty"):
+        engineer.fit(pd.DataFrame())
+
+
+def test_fit_invalid_y_not_series(mocker, sample_data_frame):
+    """fit() raises ValueError when y is not a Series."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    engineer = LLMFeatureEngineer(problem_type="classification")
+    with pytest.raises(ValueError, match="y must be a pandas Series"):
+        engineer.fit(sample_data_frame, y=[0, 1])
+
+
+def test_fit_invalid_y_length_mismatch(mocker, sample_data_frame):
+    """fit() raises ValueError when X and y have different lengths."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    engineer = LLMFeatureEngineer(problem_type="classification")
+    with pytest.raises(ValueError, match="same length"):
+        engineer.fit(sample_data_frame, y=pd.Series([0, 1, 2]))
+
+
+def test_fit_stores_n_features_in(mocker, sample_data_frame):
+    """fit() stores n_features_in_ and feature_names_in_ after fitting."""
+    mock_ideas = Mock()
+    mock_ideas.ideas = []
+    mocker.patch(
+        "skfeaturellm.llm_interface.LLMInterface.generate_engineered_features",
+        return_value=mock_ideas,
+    )
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    engineer = LLMFeatureEngineer(problem_type="classification")
+    engineer.fit(sample_data_frame)
+    assert engineer.n_features_in_ == 3
+    assert engineer.feature_names_in_ == ["age", "income", "city"]
+
+
+def test_transform_raises_missing_columns(mocker, sample_data_frame):
+    """transform() raises ValueError when X is missing fit-time columns."""
+    mock_ideas = Mock()
+    mock_ideas.ideas = []
+    mocker.patch(
+        "skfeaturellm.llm_interface.LLMInterface.generate_engineered_features",
+        return_value=mock_ideas,
+    )
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    engineer = LLMFeatureEngineer(problem_type="classification")
+    engineer.fit(sample_data_frame)
+    X_missing = sample_data_frame.drop(columns=["age"])
+    with pytest.raises(ValueError, match="missing columns"):
+        engineer.transform(X_missing)
+
+
+def test_fit_selective_invalid_n_rounds(mocker, numeric_data_frame):
+    """fit_selective() raises ValueError for n_rounds < 1."""
+    from sklearn.feature_selection import SelectKBest, f_classif
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    engineer = LLMFeatureEngineer(problem_type="classification")
+    y = pd.Series([0, 1])
+    with pytest.raises(ValueError, match="n_rounds must be a positive integer"):
+        engineer.fit_selective(numeric_data_frame, y, SelectKBest(f_classif, k=1), n_rounds=0)
+
+
+def test_fit_selective_invalid_eval_set(mocker, numeric_data_frame):
+    """fit_selective() raises ValueError for malformed eval_set."""
+    from sklearn.feature_selection import SelectKBest, f_classif
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    engineer = LLMFeatureEngineer(problem_type="classification")
+    y = pd.Series([0, 1])
+    with pytest.raises(ValueError, match="eval_set must be a tuple"):
+        engineer.fit_selective(
+            numeric_data_frame, y, SelectKBest(f_classif, k=1), eval_set="bad"
+        )
+
+
+def test_evaluate_features_missing_columns_raises(mocker, sample_data_frame):
+    """evaluate_features(is_transformed=True) raises ValueError for missing generated columns."""
+    mocker.patch("skfeaturellm.llm_interface.init_chat_model")
+    engineer = LLMFeatureEngineer(problem_type="classification", feature_prefix="llm_feat_")
+    engineer.generated_features_ideas_ = [
+        FeatureEngineeringIdea(
+            type="mul",
+            feature_name="age_double",
+            columns=["age"],
+            parameters={"constant": 2.0},
+            description="Double the age",
+        )
+    ]
+    y = pd.Series([0, 1])
+    with pytest.raises(ValueError, match="Expected generated feature columns not found"):
+        engineer.evaluate_features(sample_data_frame, y, is_transformed=True)

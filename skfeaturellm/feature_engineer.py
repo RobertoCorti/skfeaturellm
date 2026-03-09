@@ -53,6 +53,16 @@ class LLMFeatureEngineer(
         verbose: int = 0,
         **kwargs,
     ):
+        if max_features is not None and (
+            not isinstance(max_features, int) or max_features < 1
+        ):
+            raise ValueError(
+                f"max_features must be a positive integer or None, got {max_features!r}"
+            )
+        if not isinstance(verbose, int) or verbose < 0:
+            raise ValueError(
+                f"verbose must be a non-negative integer, got {verbose!r}"
+            )
         self.problem_type = ProblemType(problem_type)
         self.model_name = model_name
         self.target_col = target_col
@@ -87,18 +97,32 @@ class LLMFeatureEngineer(
         self : LLMFeatureEngineer
             The fitted transformer
         """
+        if not isinstance(X, pd.DataFrame):
+            raise ValueError(
+                f"X must be a pandas DataFrame, got {type(X).__name__!r}"
+            )
+        if X.empty:
+            raise ValueError("X must not be empty.")
+        if y is not None:
+            if not isinstance(y, pd.Series):
+                raise ValueError(
+                    f"y must be a pandas Series or None, got {type(y).__name__!r}"
+                )
+            if len(y) != len(X):
+                raise ValueError(
+                    f"X and y must have the same length, got X={len(X)} and y={len(y)}"
+                )
+        self.n_features_in_ = X.shape[1]
+        self.feature_names_in_ = list(X.columns)
+
         if feature_descriptions is None:
-            # Extract feature descriptions from DataFrame
             feature_descriptions = [
                 {"name": col, "type": str(X[col].dtype), "description": ""}
                 for col in X.columns
             ]
-
         dataset_statistics = prompt_utils.format_dataset_statistics(
             X, y, self.problem_type
         )
-
-        # Generate feature engineering ideas
         self.generated_features_ideas_ = (
             self.llm_interface.generate_engineered_features(
                 feature_descriptions=feature_descriptions,
@@ -108,7 +132,6 @@ class LLMFeatureEngineer(
                 dataset_statistics=dataset_statistics,
             ).ideas
         )
-
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
@@ -125,20 +148,21 @@ class LLMFeatureEngineer(
         pd.DataFrame
             Input dataframe with the generated features
         """
-        # if fit has not been called, raise an error
         check_is_fitted(self)
-
-        # Convert LLM output to executor config and apply prefix to feature names
+        if not isinstance(X, pd.DataFrame):
+            raise ValueError(
+                f"X must be a pandas DataFrame, got {type(X).__name__!r}"
+            )
+        missing_cols = set(self.feature_names_in_) - set(X.columns)
+        if missing_cols:
+            raise ValueError(
+                f"X is missing columns that were present during fit: {sorted(missing_cols)}"
+            )
         executor_config = self._build_executor_config(self.generated_features_ideas_)
-
-        # Create executor with raise_on_error=False to skip failed transformations
         executor = TransformationPipeline.from_dict(
             executor_config, raise_on_error=False
         )
-
-        # Execute transformations
         result_df = executor.fit(X).transform(X)
-
         return result_df
 
     def to_transformer(
@@ -229,12 +253,43 @@ class LLMFeatureEngineer(
             The fitted transformer. Call ``transform()`` to apply the selected
             features and ``to_transformer()`` to export them for production.
         """
+        if not isinstance(X, pd.DataFrame):
+            raise ValueError(
+                f"X must be a pandas DataFrame, got {type(X).__name__!r}"
+            )
+        if X.empty:
+            raise ValueError("X must not be empty.")
+        if not isinstance(y, pd.Series):
+            raise ValueError(
+                f"y must be a pandas Series, got {type(y).__name__!r}"
+            )
+        if len(y) != len(X):
+            raise ValueError(
+                f"X and y must have the same length, got X={len(X)} and y={len(y)}"
+            )
+        if not isinstance(n_rounds, int) or n_rounds < 1:
+            raise ValueError(
+                f"n_rounds must be a positive integer, got {n_rounds!r}"
+            )
+        if eval_set is not None:
+            if (
+                not isinstance(eval_set, tuple)
+                or len(eval_set) != 2
+                or not isinstance(eval_set[0], pd.DataFrame)
+                or not isinstance(eval_set[1], pd.Series)
+            ):
+                raise ValueError(
+                    "eval_set must be a tuple of (pd.DataFrame, pd.Series), "
+                    f"got {type(eval_set)!r}"
+                )
+        self.n_features_in_ = X.shape[1]
+        self.feature_names_in_ = list(X.columns)
+
         if feature_descriptions is None:
             feature_descriptions = [
                 {"name": col, "type": str(X[col].dtype), "description": ""}
                 for col in X.columns
             ]
-
         dataset_statistics = prompt_utils.format_dataset_statistics(
             X, y, self.problem_type
         )
@@ -448,7 +503,6 @@ class LLMFeatureEngineer(
         transformations = []
         for idea in ideas:
             config = idea.to_executor_dict()
-            # Apply feature prefix
             config["feature_name"] = f"{self.feature_prefix}{config['feature_name']}"
             transformations.append(config)
 
@@ -480,14 +534,20 @@ class LLMFeatureEngineer(
         check_is_fitted(self)
 
         feature_evaluator = FeatureEvaluator(self.problem_type)
-
         X_transformed = self.transform(X) if not is_transformed else X
-
         generated_features_names = [
             f"{self.feature_prefix}{idea.feature_name}"
             for idea in self.generated_features_ideas_
         ]
-
+        if is_transformed:
+            missing = [
+                col for col in generated_features_names
+                if col not in X_transformed.columns
+            ]
+            if missing:
+                raise ValueError(
+                    f"Expected generated feature columns not found in X: {missing}"
+                )
         return feature_evaluator.evaluate(
             X_transformed, y, features=generated_features_names
         )

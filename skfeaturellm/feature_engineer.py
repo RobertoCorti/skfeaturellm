@@ -51,6 +51,10 @@ class LLMFeatureEngineer(
         max_features: Optional[int] = None,
         feature_prefix: str = "llm_feat_",
         verbose: int = 0,
+        model_provider: Optional[str] = None,
+        llm_kwargs: Optional[Dict[str, Any]] = None,
+        llm_interface: Optional[LLMInterface] = None,
+        feature_evaluator: Optional[FeatureEvaluator] = None,
         **kwargs,
     ):
         self.problem_type = ProblemType(problem_type)
@@ -59,7 +63,32 @@ class LLMFeatureEngineer(
         self.max_features = max_features
         self.feature_prefix = feature_prefix
         self.verbose = verbose
-        self.llm_interface = LLMInterface(model_name=model_name, **kwargs)
+        if llm_kwargs is not None and kwargs:
+            raise ValueError(
+                "Pass extra LLM options via llm_kwargs or keyword args, not both."
+            )
+
+        self.model_provider = model_provider
+        self.llm_kwargs = kwargs if llm_kwargs is None else llm_kwargs
+        self.llm_interface = llm_interface
+        self.feature_evaluator = feature_evaluator
+
+    @property
+    def _llm_interface(self) -> LLMInterface:
+        """Lazily create the LLM interface so clone()/get_params() stay sklearn-safe."""
+        if self.llm_interface is None:
+            llm_kwargs = dict(self.llm_kwargs)
+            if self.model_provider is not None:
+                llm_kwargs.setdefault("model_provider", self.model_provider)
+            self.llm_interface = LLMInterface(model_name=self.model_name, **llm_kwargs)
+        return self.llm_interface
+
+    @property
+    def _feature_evaluator(self) -> FeatureEvaluator:
+        """Lazily create the feature evaluator to avoid hidden constructor side effects."""
+        if self.feature_evaluator is None:
+            self.feature_evaluator = FeatureEvaluator(self.problem_type)
+        return self.feature_evaluator
 
     def fit(
         self,
@@ -100,7 +129,7 @@ class LLMFeatureEngineer(
 
         # Generate feature engineering ideas
         self.generated_features_ideas_ = (
-            self.llm_interface.generate_engineered_features(
+            self._llm_interface.generate_engineered_features(
                 feature_descriptions=feature_descriptions,
                 problem_type=self.problem_type.value,
                 target_description=target_description,
@@ -238,7 +267,7 @@ class LLMFeatureEngineer(
         dataset_statistics = prompt_utils.format_dataset_statistics(
             X, y, self.problem_type
         )
-        prompt_context = self.llm_interface.generate_prompt_context(
+        prompt_context = self._llm_interface.generate_prompt_context(
             feature_descriptions=feature_descriptions,
             target_description=target_description,
             problem_type=self.problem_type.value,
@@ -263,7 +292,7 @@ class LLMFeatureEngineer(
                 print("  Querying LLM...", flush=True)
 
             ideas_result, conversation_history = (
-                self.llm_interface.generate_engineered_features_iterative(
+                self._llm_interface.generate_engineered_features_iterative(
                     prompt_context=prompt_context,
                     conversation_history=conversation_history,
                     feedback_context=feedback_context,
@@ -479,7 +508,7 @@ class LLMFeatureEngineer(
         """
         check_is_fitted(self)
 
-        feature_evaluator = FeatureEvaluator(self.problem_type)
+        feature_evaluator = self._feature_evaluator
 
         X_transformed = self.transform(X) if not is_transformed else X
 

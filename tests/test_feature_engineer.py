@@ -1,10 +1,11 @@
 """Tests for the LLMFeatureEngineer class."""
 
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.base import clone
 
 from skfeaturellm.exceptions import NotFittedError
 from skfeaturellm.feature_engineer import LLMFeatureEngineer
@@ -45,6 +46,26 @@ def test_initialization(mocker):
     assert engineer.target_col == "default"
     assert engineer.max_features == 3
     assert engineer.feature_prefix == "test_"
+
+
+def test_clone_produces_valid_unfitted_estimator():
+    """Clone should succeed and return an unfitted sklearn-compatible estimator."""
+    with patch("skfeaturellm.llm_interface.init_chat_model"):
+        engineer = LLMFeatureEngineer(
+            problem_type="classification",
+            model_name="gpt-4o",
+            target_col="target",
+            max_features=3,
+            feature_prefix="test_",
+            model_provider="openai",
+        )
+
+    cloned = clone(engineer)
+
+    assert isinstance(cloned, LLMFeatureEngineer)
+    assert cloned is not engineer
+    assert cloned.get_params() == engineer.get_params()
+    assert not hasattr(cloned, "generated_features_ideas_")
 
 
 def test_fit_no_features(

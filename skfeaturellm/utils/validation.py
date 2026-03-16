@@ -24,3 +24,49 @@ def _is_fitted(estimator):
         v for v in vars(estimator) if v.endswith("_") and not v.startswith("__")
     ]
     return len(fitted_attrs) > 0
+
+
+def validate_data(
+    X,
+    y=None,
+    *,
+    estimator_name: str = "estimator",
+) -> None:
+    """Validate input data X and optional target y.
+
+    Parameters
+    ----------
+    X : object
+        Input features to validate.
+    y : object, optional
+        Target variable to validate.
+    estimator_name : str
+        Name of the estimator, used in error messages.
+
+    Raises
+    ------
+    ValueError
+        If X is not a non-empty DataFrame, or X and y have different lengths.
+    TypeError
+        If X is not a DataFrame or y is not a Series.
+    """
+    import pandas as pd
+
+    if not isinstance(X, pd.DataFrame):
+        raise ValueError(
+            f"[{estimator_name}] X must be a pandas DataFrame, "
+            f"got {type(X).__name__!r}"
+        )
+    if X.empty:
+        raise ValueError(f"[{estimator_name}] X must not be empty.")
+    if y is not None:
+        if not isinstance(y, pd.Series):
+            raise ValueError(
+                f"[{estimator_name}] y must be a pandas Series or None, "
+                f"got {type(y).__name__!r}"
+            )
+        if len(y) != len(X):
+            raise ValueError(
+                f"[{estimator_name}] X and y must have the same length, "
+                f"got X={len(X)} and y={len(y)}"
+            )

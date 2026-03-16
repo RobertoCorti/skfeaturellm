@@ -15,7 +15,7 @@ from skfeaturellm.prompts import utils as prompt_utils
 from skfeaturellm.schemas import FeatureEngineeringIdea
 from skfeaturellm.transformations import TransformationPipeline
 from skfeaturellm.types import ProblemType
-from skfeaturellm.utils.validation import check_is_fitted
+from skfeaturellm.utils.validation import check_is_fitted, validate_data
 
 
 class LLMFeatureEngineer(
@@ -97,21 +97,8 @@ class LLMFeatureEngineer(
         self : LLMFeatureEngineer
             The fitted transformer
         """
-        if not isinstance(X, pd.DataFrame):
-            raise ValueError(
-                f"X must be a pandas DataFrame, got {type(X).__name__!r}"
-            )
-        if X.empty:
-            raise ValueError("X must not be empty.")
-        if y is not None:
-            if not isinstance(y, pd.Series):
-                raise ValueError(
-                    f"y must be a pandas Series or None, got {type(y).__name__!r}"
-                )
-            if len(y) != len(X):
-                raise ValueError(
-                    f"X and y must have the same length, got X={len(X)} and y={len(y)}"
-                )
+        validate_data(X, y, estimator_name=self.__class__.__name__)
+
         self.n_features_in_ = X.shape[1]
         self.feature_names_in_ = list(X.columns)
 
@@ -149,10 +136,7 @@ class LLMFeatureEngineer(
             Input dataframe with the generated features
         """
         check_is_fitted(self)
-        if not isinstance(X, pd.DataFrame):
-            raise ValueError(
-                f"X must be a pandas DataFrame, got {type(X).__name__!r}"
-            )
+        validate_data(X, estimator_name=self.__class__.__name__)
         missing_cols = set(self.feature_names_in_) - set(X.columns)
         if missing_cols:
             raise ValueError(
@@ -253,20 +237,7 @@ class LLMFeatureEngineer(
             The fitted transformer. Call ``transform()`` to apply the selected
             features and ``to_transformer()`` to export them for production.
         """
-        if not isinstance(X, pd.DataFrame):
-            raise ValueError(
-                f"X must be a pandas DataFrame, got {type(X).__name__!r}"
-            )
-        if X.empty:
-            raise ValueError("X must not be empty.")
-        if not isinstance(y, pd.Series):
-            raise ValueError(
-                f"y must be a pandas Series, got {type(y).__name__!r}"
-            )
-        if len(y) != len(X):
-            raise ValueError(
-                f"X and y must have the same length, got X={len(X)} and y={len(y)}"
-            )
+        validate_data(X, y, estimator_name=self.__class__.__name__)
         if not isinstance(n_rounds, int) or n_rounds < 1:
             raise ValueError(
                 f"n_rounds must be a positive integer, got {n_rounds!r}"

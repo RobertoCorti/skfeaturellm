@@ -1,5 +1,7 @@
 from inspect import isclass
 
+import pandas as pd
+
 from skfeaturellm.exceptions import NotFittedError
 
 
@@ -50,7 +52,6 @@ def validate_data(
     TypeError
         If X is not a DataFrame or y is not a Series.
     """
-    import pandas as pd
 
     if not isinstance(X, pd.DataFrame):
         raise ValueError(

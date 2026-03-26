@@ -60,9 +60,7 @@ class LLMFeatureEngineer(
                 f"max_features must be a positive integer or None, got {max_features!r}"
             )
         if not isinstance(verbose, int) or verbose < 0:
-            raise ValueError(
-                f"verbose must be a non-negative integer, got {verbose!r}"
-            )
+            raise ValueError(f"verbose must be a non-negative integer, got {verbose!r}")
         self.problem_type = ProblemType(problem_type)
         self.model_name = model_name
         self.target_col = target_col
@@ -239,9 +237,7 @@ class LLMFeatureEngineer(
         """
         validate_data(X, y, estimator_name=self.__class__.__name__)
         if not isinstance(n_rounds, int) or n_rounds < 1:
-            raise ValueError(
-                f"n_rounds must be a positive integer, got {n_rounds!r}"
-            )
+            raise ValueError(f"n_rounds must be a positive integer, got {n_rounds!r}")
         if eval_set is not None:
             if (
                 not isinstance(eval_set, tuple)
@@ -512,7 +508,8 @@ class LLMFeatureEngineer(
         ]
         if is_transformed:
             missing = [
-                col for col in generated_features_names
+                col
+                for col in generated_features_names
                 if col not in X_transformed.columns
             ]
             if missing:

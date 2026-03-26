@@ -693,6 +693,8 @@ def test_to_transformer_filter_by_unprefixed_name(mocker, sample_data_frame):
 
     assert len(transformer.transformations) == 1
     assert transformer.transformations[0]["feature_name"] == "llm_feat_age_double"
+
+
 # =============================================================================
 # Test: Input validation (new)
 # =============================================================================
@@ -778,16 +780,20 @@ def test_transform_raises_missing_columns(mocker, sample_data_frame):
 def test_fit_selective_invalid_n_rounds(mocker, numeric_data_frame):
     """fit_selective() raises ValueError for n_rounds < 1."""
     from sklearn.feature_selection import SelectKBest, f_classif
+
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
     engineer = LLMFeatureEngineer(problem_type="classification")
     y = pd.Series([0, 1])
     with pytest.raises(ValueError, match="n_rounds must be a positive integer"):
-        engineer.fit_selective(numeric_data_frame, y, SelectKBest(f_classif, k=1), n_rounds=0)
+        engineer.fit_selective(
+            numeric_data_frame, y, SelectKBest(f_classif, k=1), n_rounds=0
+        )
 
 
 def test_fit_selective_invalid_eval_set(mocker, numeric_data_frame):
     """fit_selective() raises ValueError for malformed eval_set."""
     from sklearn.feature_selection import SelectKBest, f_classif
+
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
     engineer = LLMFeatureEngineer(problem_type="classification")
     y = pd.Series([0, 1])
@@ -800,7 +806,9 @@ def test_fit_selective_invalid_eval_set(mocker, numeric_data_frame):
 def test_evaluate_features_missing_columns_raises(mocker, sample_data_frame):
     """evaluate_features(is_transformed=True) raises ValueError for missing generated columns."""
     mocker.patch("skfeaturellm.llm_interface.init_chat_model")
-    engineer = LLMFeatureEngineer(problem_type="classification", feature_prefix="llm_feat_")
+    engineer = LLMFeatureEngineer(
+        problem_type="classification", feature_prefix="llm_feat_"
+    )
     engineer.generated_features_ideas_ = [
         FeatureEngineeringIdea(
             type="mul",
@@ -811,5 +819,7 @@ def test_evaluate_features_missing_columns_raises(mocker, sample_data_frame):
         )
     ]
     y = pd.Series([0, 1])
-    with pytest.raises(ValueError, match="Expected generated feature columns not found"):
+    with pytest.raises(
+        ValueError, match="Expected generated feature columns not found"
+    ):
         engineer.evaluate_features(sample_data_frame, y, is_transformed=True)

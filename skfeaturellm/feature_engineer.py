@@ -134,6 +134,8 @@ class LLMFeatureEngineer(
             Input dataframe with the generated features
         """
         check_is_fitted(self)
+        if not hasattr(self, "feature_names_in_"):
+            self.feature_names_in_ = list(X.columns)
         validate_data(X, estimator_name=self.__class__.__name__)
         missing_cols = set(self.feature_names_in_) - set(X.columns)
         if missing_cols:
